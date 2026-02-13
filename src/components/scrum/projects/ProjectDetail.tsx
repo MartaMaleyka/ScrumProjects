@@ -143,14 +143,14 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onNavigate }) 
   if (error || !project) {
     return (
       <div className="text-center py-12">
-        <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-6 max-w-md mx-auto">
-          <svg className="w-16 h-16 text-red-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-6 max-w-md mx-auto">
+          <svg className="w-16 h-16 text-red-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
           </svg>
-          <h3 className="text-lg font-medium text-white mb-2">Error al cargar proyecto</h3>
-          <p className="text-red-200 mb-4">{error || 'Proyecto no encontrado'}</p>
-          <button 
-            onClick={() => window.location.reload()} 
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Error al cargar proyecto</h3>
+          <p className="text-red-600 mb-4">{error || 'Proyecto no encontrado'}</p>
+          <button
+            onClick={() => window.location.reload()}
             className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors"
           >
             Reintentar
@@ -162,88 +162,83 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onNavigate }) 
 
   const { progress, completed, total } = getProgressData();
 
+  const cardClass = 'bg-white border border-gray-200 rounded-xl shadow-sm p-6';
+
   return (
     <div className="space-y-6">
       {/* Header del Proyecto */}
-      <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl p-6">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0">
-          <div className="flex items-start space-x-4">
-            <div className="w-16 h-16 bg-gradient-to-r from-[#0EA5E9] to-[#0264C5] rounded-xl flex items-center justify-center text-white">
-              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <div className={cardClass}>
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 lg:gap-6">
+          <div className="flex items-start gap-4">
+            <div className="w-14 h-14 flex-shrink-0 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-xl flex items-center justify-center text-white shadow-sm">
+              <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
               </svg>
             </div>
-            
-            <div>
-              <div className="flex items-center space-x-3 mb-2">
-                <h1 className="text-2xl font-bold text-white">{project.name}</h1>
+            <div className="min-w-0">
+              <div className="flex items-center gap-3 mb-2 flex-wrap">
+                <h1 className="text-xl font-bold text-gray-900">{project.name}</h1>
                 <StatusBadge status={project.status} type="project" />
               </div>
-              <p className="text-blue-200 mb-3">{project.description || 'Sin descripción'}</p>
-              
-              <div className="flex items-center space-x-6 text-sm text-blue-300">
-                <div>Inicio: {formatDate(project.startDate)}</div>
-                <div>Fin: {formatDate(project.endDate)}</div>
-                <div>Creado: {formatDate(project.createdAt)}</div>
+              <p className="text-gray-500 text-sm mb-3">{project.description || 'Sin descripción'}</p>
+              <div className="flex flex-wrap items-center gap-4 text-sm text-gray-500">
+                <span>Inicio: {formatDate(project.startDate)}</span>
+                <span>Fin: {formatDate(project.endDate)}</span>
+                <span>Creado: {formatDate(project.createdAt)}</span>
               </div>
             </div>
           </div>
-          
-          <div className="flex items-center space-x-3">
-            <button className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center space-x-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors text-sm font-medium">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
               </svg>
-              <span>Editar</span>
+              Editar
             </button>
-            
-            <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors flex items-center space-x-2">
+            <button className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white transition-colors text-sm font-medium">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
-              <span>Configurar</span>
+              Configurar
             </button>
           </div>
         </div>
 
-        {/* Progreso del proyecto */}
         {metrics && (
-          <div className="mt-6 pt-6 border-t border-white/20">
-            <ProgressBar 
-              progress={progress} 
+          <div className="mt-6 pt-6 border-t border-gray-100">
+            <ProgressBar
+              progress={progress}
               completed={completed}
               total={total}
               label="Progreso general del proyecto"
               size="lg"
               color="blue"
-              showPercentage={true}
-              showNumbers={true}
+              showPercentage
+              showNumbers
             />
           </div>
         )}
       </div>
 
-      {/* Navigation Tabs */}
-      <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl p-2">
-        <nav className="flex space-x-2 overflow-x-auto">
+      {/* Tabs */}
+      <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-2">
+        <nav className="flex gap-1 overflow-x-auto">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center space-x-2 px-4 py-3 rounded-lg transition-all duration-200 whitespace-nowrap ${
+              className={`flex items-center gap-2 px-4 py-3 rounded-lg transition-all duration-200 whitespace-nowrap text-sm font-medium ${
                 activeTab === tab.id
-                  ? 'bg-[#FF9100]/20 text-white border border-[#FF9100]/50 shadow-sm'
-                  : 'text-blue-200 hover:text-[#FF9100] hover:bg-white/10'
+                  ? 'bg-indigo-100 text-indigo-700 border border-indigo-200'
+                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900 border border-transparent'
               }`}
             >
               {tab.icon}
-              <span className="font-medium">{tab.label}</span>
+              <span>{tab.label}</span>
               {tab.count !== undefined && (
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                  activeTab === tab.id 
-                    ? 'bg-[#FF9100]/30 text-white' 
-                    : 'bg-blue-500/20 text-blue-300'
+                <span className={`px-2 py-0.5 rounded-full text-xs ${
+                  activeTab === tab.id ? 'bg-indigo-200/80 text-indigo-800' : 'bg-gray-200 text-gray-600'
                 }`}>
                   {tab.count}
                 </span>
@@ -257,122 +252,107 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onNavigate }) 
       <div className="animate-fade-in">
         {activeTab === 'overview' && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Columna izquierda */}
             <div className="space-y-6">
-              {/* Información del proyecto */}
-              <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl p-6">
-                <h3 className="text-lg font-semibold text-white mb-4">Información del Proyecto</h3>
+              <div className={cardClass}>
+                <h3 className="text-base font-semibold text-gray-900 mb-4">Información del Proyecto</h3>
                 <div className="space-y-3 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-blue-200">Estado:</span>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-500">Estado</span>
                     <StatusBadge status={project.status} type="project" size="sm" />
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-blue-200">Inicio:</span>
-                    <span className="text-white">{formatDate(project.startDate)}</span>
+                    <span className="text-gray-500">Inicio</span>
+                    <span className="text-gray-900">{formatDate(project.startDate)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-blue-200">Fin estimado:</span>
-                    <span className="text-white">{formatDate(project.endDate)}</span>
+                    <span className="text-gray-500">Fin estimado</span>
+                    <span className="text-gray-900">{formatDate(project.endDate)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-blue-200">Creado:</span>
-                    <span className="text-white">{formatDate(project.createdAt)}</span>
+                    <span className="text-gray-500">Creado</span>
+                    <span className="text-gray-900">{formatDate(project.createdAt)}</span>
                   </div>
                 </div>
               </div>
 
-              {/* Acciones rápidas */}
-              <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl p-6">
-                <h3 className="text-lg font-semibold text-white mb-4">Acciones Rápidas</h3>
+              <div className={cardClass}>
+                <h3 className="text-base font-semibold text-gray-900 mb-4">Acciones Rápidas</h3>
                 <div className="space-y-2">
-                  <button className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors text-sm flex items-center space-x-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                    </svg>
-                    <span>Nueva Épica</span>
+                  <button className="w-full px-4 py-2.5 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium flex items-center justify-center gap-2 transition-colors">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                    Nueva Épica
                   </button>
-                  <button className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors text-sm flex items-center space-x-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                    </svg>
-                    <span>Nuevo Sprint</span>
+                  <button className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-medium flex items-center justify-center gap-2 transition-colors">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                    Nuevo Sprint
                   </button>
-                  <button className="w-full bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors text-sm flex items-center space-x-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                    </svg>
-                    <span>Nueva Historia</span>
+                  <button className="w-full px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 text-sm font-medium flex items-center justify-center gap-2 transition-colors">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" /></svg>
+                    Nueva Historia
                   </button>
                 </div>
               </div>
             </div>
 
-            {/* Columna central */}
             <div className="space-y-6">
-              {/* Métricas del proyecto */}
               {metrics && (
-                <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl p-6">
-                  <h3 className="text-lg font-semibold text-white mb-4">Métricas del Proyecto</h3>
+                <div className={cardClass}>
+                  <h3 className="text-base font-semibold text-gray-900 mb-4">Métricas del Proyecto</h3>
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-blue-300">{metrics.epics.total}</div>
-                      <div className="text-xs text-blue-200">Épicas</div>
+                    <div className="bg-gray-50 rounded-lg py-3 text-center">
+                      <div className="text-xl font-bold text-indigo-600">{metrics.epics.total}</div>
+                      <div className="text-xs text-gray-500">Épicas</div>
                     </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-green-300">{metrics.userStories.total}</div>
-                      <div className="text-xs text-blue-200">Historias</div>
+                    <div className="bg-gray-50 rounded-lg py-3 text-center">
+                      <div className="text-xl font-bold text-indigo-600">{metrics.userStories.total}</div>
+                      <div className="text-xs text-gray-500">Historias</div>
                     </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-purple-300">{metrics.sprints.total}</div>
-                      <div className="text-xs text-blue-200">Sprints</div>
+                    <div className="bg-gray-50 rounded-lg py-3 text-center">
+                      <div className="text-xl font-bold text-indigo-600">{metrics.sprints.total}</div>
+                      <div className="text-xs text-gray-500">Sprints</div>
                     </div>
-                    <div className="text-center">
-                      <div className="text-2xl font-bold text-yellow-300">{metrics.tasks.total}</div>
-                      <div className="text-xs text-blue-200">Tareas</div>
+                    <div className="bg-gray-50 rounded-lg py-3 text-center">
+                      <div className="text-xl font-bold text-indigo-600">{metrics.tasks.total}</div>
+                      <div className="text-xs text-gray-500">Tareas</div>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Últimas actividades */}
-              <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl p-6">
-                <h3 className="text-lg font-semibold text-white mb-4">Actividad Reciente</h3>
+              <div className={cardClass}>
+                <h3 className="text-base font-semibold text-gray-900 mb-4">Actividad Reciente</h3>
                 <div className="space-y-3 text-sm">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                    <span className="text-blue-200">Proyecto creado</span>
-                    <span className="text-blue-300 text-xs">{formatDate(project.createdAt)}</span>
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 bg-emerald-500 rounded-full" />
+                    <span className="text-gray-600">Proyecto creado</span>
+                    <span className="text-gray-400 text-xs ml-auto">{formatDate(project.createdAt)}</span>
                   </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                    <span className="text-blue-200">Estado actualizado</span>
-                    <span className="text-blue-300 text-xs">{formatDate(project.updatedAt)}</span>
+                  <div className="flex items-center gap-3">
+                    <div className="w-2 h-2 bg-indigo-500 rounded-full" />
+                    <span className="text-gray-600">Estado actualizado</span>
+                    <span className="text-gray-400 text-xs ml-auto">{formatDate(project.updatedAt)}</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Columna derecha */}
             <div className="space-y-6">
-              {/* Team performance */}
-              <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl p-6">
-                <h3 className="text-lg font-semibold text-white mb-4">Rendimiento del Equipo</h3>
+              <div className={cardClass}>
+                <h3 className="text-base font-semibold text-gray-900 mb-4">Rendimiento del Equipo</h3>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-white mb-2">{project._count?.members || 0}</div>
-                  <div className="text-blue-200 text-sm">Miembros del equipo</div>
+                  <div className="text-2xl font-bold text-gray-900">{project._count?.members || 0}</div>
+                  <div className="text-sm text-gray-500">Miembros del equipo</div>
                 </div>
               </div>
 
-              {/* Próximos hitos */}
-              <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl p-6">
-                <h3 className="text-lg font-semibold text-white mb-4">Próximos Hitos</h3>
+              <div className={cardClass}>
+                <h3 className="text-base font-semibold text-gray-900 mb-4">Próximos Hitos</h3>
                 <div className="space-y-3 text-sm">
                   {project.endDate && (
-                    <div className="flex items-center space-x-3">
-                      <div className="w-2 h-2 bg-yellow-400 rounded-full"></div>
-                      <span className="text-blue-200">Fin del proyecto</span>
-                      <span className="text-blue-300 text-xs">{formatDate(project.endDate)}</span>
+                    <div className="flex items-center gap-3">
+                      <div className="w-2 h-2 bg-amber-500 rounded-full" />
+                      <span className="text-gray-600">Fin del proyecto</span>
+                      <span className="text-gray-400 text-xs ml-auto">{formatDate(project.endDate)}</span>
                     </div>
                   )}
                 </div>
@@ -402,16 +382,16 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onNavigate }) 
         {activeTab === 'tasks' && (
           <div className="space-y-6">
             {selectedSprint && (
-              <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl p-4">
-                <h3 className="text-lg font-semibold text-white mb-2">
-                  Tablero Kanban - {selectedSprint.name}
+              <div className={cardClass}>
+                <h3 className="text-base font-semibold text-gray-900 mb-2">
+                  Tablero Kanban — {selectedSprint.name}
                 </h3>
-                <p className="text-blue-200 text-sm">
+                <p className="text-gray-500 text-sm">
                   {selectedSprint.description}
                 </p>
               </div>
             )}
-            <KanbanBoard 
+            <KanbanBoard
               projectId={projectId}
               sprintId={selectedSprint?.id}
             />
@@ -419,9 +399,9 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onNavigate }) 
         )}
 
         {activeTab === 'analytics' && (
-          <div className="bg-white/10 backdrop-blur-lg border border-white/20 rounded-xl p-6 text-center">
-            <h3 className="text-lg font-semibold text-white mb-2">Analíticas del Proyecto</h3>
-            <p className="text-blue-200">Los gráficos y métricas detalladas se mostrarán aquí</p>
+          <div className={`${cardClass} text-center py-12`}>
+            <h3 className="text-base font-semibold text-gray-900 mb-2">Analíticas del Proyecto</h3>
+            <p className="text-gray-500">Los gráficos y métricas detalladas se mostrarán aquí</p>
           </div>
         )}
       </div>

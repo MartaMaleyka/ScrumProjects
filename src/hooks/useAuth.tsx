@@ -14,11 +14,11 @@ interface AuthContextType {
 // Contexto de autenticación
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Default context value for when AuthProvider is not available
+// Default context value for when AuthProvider is not available (evita spinner infinito en islas Astro)
 export const defaultAuthContext = {
   user: null,
   isAuthenticated: false,
-  isLoading: true,
+  isLoading: false,
   login: async () => false,
   loginUnified: async () => false,
   logout: () => {},

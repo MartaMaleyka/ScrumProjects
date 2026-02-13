@@ -1,13 +1,10 @@
 ---
-// Página del Sistema de Gestión Scrum
+// Página del Sistema de Gestión Scrum - una sola isla para que el header reciba el contexto de auth
 import '../styles/global.css';
 import Layout from '../layouts/Layout.astro';
-import AppWrapper from '../components/AppWrapper';
-import ScrumDashboard from '../components/scrum/ScrumDashboard';
+import ScrumApp from '../components/ScrumApp';
 ---
 
 <Layout title="Gestor de Proyectos - Scrum">
-  <AppWrapper client:load>
-    <ScrumDashboard client:only="react" />
-  </AppWrapper>
+  <ScrumApp client:load />
 </Layout>

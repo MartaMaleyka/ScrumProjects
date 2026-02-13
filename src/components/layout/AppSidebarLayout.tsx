@@ -271,7 +271,16 @@ const AppSidebarLayout: React.FC<AppSidebarLayoutProps> = ({ children }) => {
                 </svg>
               </button>
             </div>
-          ) : null}
+          ) : (
+            <div className="ml-auto flex items-center gap-2">
+              <a
+                href="/login-moderno"
+                className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+              >
+                Iniciar sesión
+              </a>
+            </div>
+          )}
         </header>
 
         {/* Page Content */}
