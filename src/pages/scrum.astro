@@ -1,0 +1,13 @@
+---
+// Página del Sistema de Gestión Scrum
+import '../styles/global.css';
+import Layout from '../layouts/Layout.astro';
+import AppWrapper from '../components/AppWrapper';
+import ScrumDashboard from '../components/scrum/ScrumDashboard';
+---
+
+<Layout title="Gestor de Proyectos - Scrum">
+  <AppWrapper client:load>
+    <ScrumDashboard client:only="react" />
+  </AppWrapper>
+</Layout>

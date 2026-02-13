@@ -1,0 +1,742 @@
+import React, { useState, useEffect } from 'react';
+import AppSidebarLayout from '../../layout/AppSidebarLayout';
+import { API_BASE_URL, authenticatedRequest } from '../../../config/api';
+
+interface SprintFormData {
+  name: string;
+  goal: string;
+  startDate: string;
+  endDate: string;
+  projectId: number;
+  status: 'PLANNING' | 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
+}
+
+interface SprintFormImprovedProps {
+  initialData?: Partial<SprintFormData>;
+  sprintId?: string;
+  mode?: 'create' | 'edit';
+}
+
+const SprintFormImproved: React.FC<SprintFormImprovedProps> = ({ 
+  initialData, 
+  sprintId,
+  mode = 'create' 
+}) => {
+  const [projectId, setProjectId] = useState<number>(initialData?.projectId || 0);
+  const [formData, setFormData] = useState<SprintFormData>({
+    name: initialData?.name || '',
+    goal: initialData?.goal || '',
+    startDate: initialData?.startDate || '',
+    endDate: initialData?.endDate || '',
+    projectId: initialData?.projectId || 0,
+    status: initialData?.status || 'PLANNING',
+  });
+  
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingData, setIsLoadingData] = useState(mode === 'edit');
+  const [error, setError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [success, setSuccess] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
+
+  // Cargar datos del sprint en modo edición
+  useEffect(() => {
+    const loadSprintData = async () => {
+      if (mode === 'edit' && sprintId) {
+        setIsLoadingData(true);
+        try {
+          const response = await authenticatedRequest(`${API_BASE_URL}/scrum/sprints/${sprintId}`);
+          const sprint = response.sprint || response.data?.sprint || response;
+          
+          if (sprint) {
+            setFormData({
+              name: sprint.name || '',
+              goal: sprint.goal || '',
+              startDate: sprint.startDate ? sprint.startDate.split('T')[0] : '',
+              endDate: sprint.endDate ? sprint.endDate.split('T')[0] : '',
+              projectId: sprint.projectId || 0,
+              status: sprint.status || 'PLANNING',
+            });
+            setProjectId(sprint.projectId || 0);
+          }
+        } catch (err: any) {
+          setError('Error al cargar los datos del sprint');
+        } finally {
+          setIsLoadingData(false);
+        }
+      }
+    };
+
+    loadSprintData();
+  }, [mode, sprintId]);
+
+  // Obtener projectId de la URL si no viene en initialData (modo crear)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && mode === 'create' && !initialData?.projectId) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlProjectId = urlParams.get('projectId');
+      if (urlProjectId) {
+        const pid = parseInt(urlProjectId);
+        setProjectId(pid);
+        setFormData(prev => ({ ...prev, projectId: pid }));
+      }
+    }
+  }, [initialData, mode]);
+
+  // Calcular progreso del formulario
+  const calculateProgress = () => {
+    let completed = 0;
+    const total = 5; // Total de campos importantes
+    
+    if (formData.name.trim()) completed++;
+    if (formData.goal.trim()) completed++;
+    if (formData.startDate) completed++;
+    if (formData.endDate) completed++;
+    if (formData.projectId > 0) completed++;
+    
+    return Math.round((completed / total) * 100);
+  };
+
+  const getFieldHelp = (field: string): string => {
+    const helpTexts: Record<string, string> = {
+      name: 'Nombra el sprint de forma clara. Ejemplo: "Sprint 1 - Autenticación" o "Sprint 3 - Dashboard Analytics"',
+      goal: 'Define el objetivo principal del sprint. ¿Qué valor o funcionalidad se entregará al finalizar? Debe ser medible y alcanzable.',
+      startDate: 'Fecha de inicio del sprint. Usualmente es lunes. Los sprints típicamente duran 1-4 semanas.',
+      endDate: 'Fecha de fin del sprint. Debe dar tiempo suficiente para completar las user stories planificadas.',
+      status: 'PLANNING: Planificando user stories. ACTIVE: Sprint en ejecución. COMPLETED: Sprint finalizado con retrospectiva.'
+    };
+    return helpTexts[field] || '';
+  };
+
+  const getSprintTemplates = () => [
+    { name: 'Sprint 1 - Fundamentos y Autenticación', goal: 'Establecer la infraestructura base del proyecto e implementar el sistema de autenticación completo con roles y permisos.' },
+    { name: 'Sprint 2 - Dashboard Principal', goal: 'Crear el dashboard principal con widgets de métricas clave, gráficos interactivos y navegación optimizada.' },
+    { name: 'Sprint 3 - Módulos de Gestión', goal: 'Desarrollar módulos CRUD principales (usuarios, categorías, departamentos) con búsqueda y filtros avanzados.' },
+    { name: 'Sprint 4 - Optimización y Testing', goal: 'Mejorar performance del sistema, implementar testing automatizado y resolver deuda técnica acumulada.' },
+  ];
+
+  const applyTemplate = (template: { name: string; goal: string }) => {
+    setFormData(prev => ({
+      ...prev,
+      name: template.name,
+      goal: template.goal
+    }));
+  };
+
+  // Calcular duración del sprint en días
+  const calculateDuration = (): number => {
+    if (!formData.startDate || !formData.endDate) return 0;
+    const start = new Date(formData.startDate);
+    const end = new Date(formData.endDate);
+    const diffTime = Math.abs(end.getTime() - start.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
+  const validateForm = (): boolean => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.name.trim()) {
+      newErrors.name = 'El nombre del sprint es obligatorio';
+    } else if (formData.name.trim().length < 3) {
+      newErrors.name = 'El nombre debe tener al menos 3 caracteres';
+    } else if (formData.name.length > 100) {
+      newErrors.name = 'El nombre no puede exceder 100 caracteres';
+    }
+
+    if (!formData.goal?.trim()) {
+      newErrors.goal = 'El objetivo del sprint es obligatorio';
+    } else if (formData.goal.trim().length < 10) {
+      newErrors.goal = 'El objetivo debe tener al menos 10 caracteres';
+    } else if (formData.goal.length > 500) {
+      newErrors.goal = 'El objetivo no puede exceder 500 caracteres';
+    }
+
+    if (!formData.startDate) {
+      newErrors.startDate = 'La fecha de inicio es obligatoria';
+    }
+
+    if (!formData.endDate) {
+      newErrors.endDate = 'La fecha de fin es obligatoria';
+    }
+
+    if (formData.startDate && formData.endDate && formData.startDate >= formData.endDate) {
+      newErrors.endDate = 'La fecha de fin debe ser posterior a la fecha de inicio';
+    }
+
+    if (!formData.projectId || formData.projectId <= 0) {
+      newErrors.projectId = 'Debes seleccionar un proyecto';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+    
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const url = mode === 'edit' && sprintId 
+        ? `${API_BASE_URL}/scrum/sprints/${sprintId}`
+        : `${API_BASE_URL}/scrum/sprints`;
+      
+      const method = mode === 'edit' ? 'PUT' : 'POST';
+      
+      const response = await authenticatedRequest(url, {
+        method,
+        body: JSON.stringify(formData)
+      });
+      
+      setSuccess(true);
+      
+      // Disparar evento para actualizar componentes relacionados
+      const sprint = response.sprint || response.data?.sprint;
+      if (sprint) {
+        if (mode === 'edit') {
+          window.dispatchEvent(new CustomEvent('sprint:updated', { detail: { sprint } }));
+        } else {
+          window.dispatchEvent(new CustomEvent('sprint:created', { detail: { sprint } }));
+        }
+      }
+      
+      setTimeout(() => {
+        window.location.href = `/proyectos/detalle?id=${formData.projectId}`;
+      }, 1500);
+      
+    } catch (err: any) {
+      setError(err.message || 'Error al guardar el sprint');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Mostrar loading mientras se cargan los datos en modo edición
+  if (isLoadingData) {
+    return (
+      <AppSidebarLayout>
+        <div className="h-full flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0264C5] mx-auto mb-4"></div>
+            <p className="text-gray-neutral">Cargando datos del sprint...</p>
+          </div>
+        </div>
+      </AppSidebarLayout>
+    );
+  }
+
+  return (
+    <AppSidebarLayout>
+      <div className="h-full flex flex-col">
+        {/* Breadcrumbs */}
+        <div className="bg-gradient-to-r from-[#F2ECDF] to-gray-50 border-b border-gray-200 px-4 sm:px-6 py-3">
+          <div className="flex justify-center">
+            <div className="max-w-7xl w-full">
+              <nav className="flex items-center space-x-2 text-sm">
+                <a href="/proyectos" className="text-[#777777] hover:text-[#0264C5] transition-colors duration-200">
+                  Proyectos
+                </a>
+                <svg className="w-4 h-4 text-[#777777]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+                {projectId > 0 && (
+                  <>
+                    <a href={`/proyectos/detalle?id=${projectId}`} className="text-[#777777] hover:text-[#0264C5] transition-colors duration-200">
+                      Proyecto #{projectId}
+                    </a>
+                    <svg className="w-4 h-4 text-[#777777]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </>
+                )}
+                <span className="text-[#0264C5] font-chatgpt-medium">
+                  {mode === 'edit' ? 'Editar Sprint' : 'Nuevo Sprint'}
+                </span>
+              </nav>
+            </div>
+          </div>
+        </div>
+
+        {/* Header */}
+        <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 sm:py-6">
+          <div className="flex justify-center">
+            <div className="max-w-7xl w-full">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h1 className="text-2xl font-chatgpt-semibold text-gray-900 flex items-center space-x-2">
+                    <span>{mode === 'edit' ? 'Editar Sprint' : 'Crear Nuevo Sprint'}</span>
+                    {mode === 'create' && (
+                      <span className="text-lg">🏃</span>
+                    )}
+                  </h1>
+                  <p className="text-sm text-[#777777] mt-1">
+                    {mode === 'edit' 
+                      ? 'Modifica la información del sprint' 
+                      : 'Los sprints son iteraciones de trabajo de duración fija (1-4 semanas)'}
+                  </p>
+                  
+                  {/* Barra de progreso */}
+                  {mode === 'create' && !success && (
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-chatgpt-medium text-gray-700">
+                          Progreso del formulario
+                        </span>
+                        <span className="text-xs font-chatgpt-semibold text-[#0264C5]">
+                          {calculateProgress()}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                        <div 
+                          className="bg-gradient-to-r from-[#0264C5] to-[#11C0F1] h-2 rounded-full transition-all duration-500 ease-out"
+                          style={{ width: `${calculateProgress()}%` }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                <button
+                  onClick={() => setShowHelp(!showHelp)}
+                  className="ml-4 bg-purple-50 hover:bg-purple-100 border-2 border-purple-200 text-purple-700 px-4 py-2 rounded-xl font-chatgpt-medium transition-all duration-300 flex items-center space-x-2 hover:scale-105 active:scale-95"
+                  title="Ver ayuda"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="hidden sm:inline">Ayuda</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Formulario */}
+        <div className="flex-1 bg-gradient-to-br from-[#F2ECDF] to-gray-50 px-4 sm:px-6 py-4 sm:py-6 overflow-y-auto">
+          <div className="flex justify-center">
+            <div className="max-w-4xl w-full space-y-4">
+              
+              {/* Panel de Ayuda */}
+              {showHelp && mode === 'create' && (
+                <div className="bg-white rounded-2xl shadow-sm border-2 border-purple-200 p-6 animate-fadeIn">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-500 rounded-xl flex items-center justify-center shadow-lg">
+                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-chatgpt-semibold text-gray-900">Guía Rápida - Sprints</h3>
+                        <p className="text-sm text-[#777777]">Mejores prácticas para sprints efectivos</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setShowHelp(false)}
+                      className="text-gray-400 hover:text-gray-600 transition-colors"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                  
+                  <div className="space-y-3 text-sm text-gray-700 mb-4">
+                    <div className="flex items-start space-x-2">
+                      <span className="text-green-500 mt-1">✓</span>
+                      <p><strong>Duración fija:</strong> Los sprints típicamente duran 1-4 semanas. Dos semanas es lo más común.</p>
+                    </div>
+                    <div className="flex items-start space-x-2">
+                      <span className="text-green-500 mt-1">✓</span>
+                      <p><strong>Objetivo claro:</strong> Define qué valor o funcionalidad se entregará al finalizar el sprint.</p>
+                    </div>
+                    <div className="flex items-start space-x-2">
+                      <span className="text-green-500 mt-1">✓</span>
+                      <p><strong>Sprint Planning:</strong> Selecciona user stories del backlog y desglósalas en tareas.</p>
+                    </div>
+                    <div className="flex items-start space-x-2">
+                      <span className="text-blue-500 mt-1">💡</span>
+                      <p><strong>Siguiente paso:</strong> Después de crear el sprint, asigna user stories desde el backlog del proyecto.</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Plantillas Rápidas */}
+              {mode === 'create' && !formData.name && (
+                <div className="bg-gradient-to-r from-orange-50 to-amber-50 rounded-2xl shadow-sm border border-orange-200 p-6">
+                  <div className="flex items-center space-x-2 mb-4">
+                    <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    <h3 className="text-lg font-chatgpt-semibold text-gray-900">Plantillas de Sprints</h3>
+                  </div>
+                  <p className="text-sm text-gray-700 mb-4">Comienza con una plantilla predefinida según la fase del proyecto</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {getSprintTemplates().map((template, index) => (
+                      <button
+                        key={index}
+                        type="button"
+                        onClick={() => applyTemplate(template)}
+                        className="text-left p-4 bg-white border-2 border-orange-200 hover:border-orange-400 rounded-xl transition-all hover:shadow-md group"
+                      >
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h4 className="font-chatgpt-semibold text-gray-900 mb-1 group-hover:text-[#0264C5] transition-colors text-sm">
+                              {template.name}
+                            </h4>
+                            <p className="text-xs text-gray-600 line-clamp-2">{template.goal}</p>
+                          </div>
+                          <svg className="w-5 h-5 text-orange-500 group-hover:text-orange-700 transition-colors flex-shrink-0 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+                {error && (
+                  <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4">
+                    <div className="flex items-start">
+                      <svg className="w-5 h-5 text-red-600 mr-3 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                      <p className="text-sm text-red-800">{error}</p>
+                    </div>
+                  </div>
+                )}
+
+                {success && (
+                  <div className="mb-6 bg-green-50 border border-green-200 rounded-xl p-4">
+                    <div className="flex items-start">
+                      <svg className="w-5 h-5 text-green-600 mr-3 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <p className="text-sm text-green-800">
+                        {mode === 'edit' ? '¡Sprint actualizado exitosamente!' : '¡Sprint creado exitosamente!'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-6">
+                  {/* Nombre */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label htmlFor="name" className="flex items-center text-sm font-chatgpt-medium text-gray-700">
+                        <svg className="w-5 h-5 text-[#0264C5] mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Nombre del Sprint <span className="text-red-500 ml-1">*</span>
+                      </label>
+                      <span className={`text-xs ${formData.name.length > 80 ? 'text-orange-600 font-chatgpt-semibold' : 'text-gray-500'}`}>
+                        {formData.name.length}/100
+                      </span>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        id="name"
+                        name="name"
+                        value={formData.name}
+                        onChange={handleInputChange}
+                        onFocus={() => setFocusedField('name')}
+                        onBlur={() => setFocusedField(null)}
+                        maxLength={100}
+                        className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-[#0264C5] focus:border-transparent transition-all ${
+                          errors.name ? 'border-red-300' : formData.name ? 'border-green-300 bg-green-50/30' : 'border-gray-300'
+                        }`}
+                        placeholder="Ej: Sprint 1 - Mejoras de UX"
+                      />
+                      {formData.name && !errors.name && (
+                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                          <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
+                    {errors.name && (
+                      <p className="mt-1 text-sm text-red-600 flex items-center space-x-1">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>{errors.name}</span>
+                      </p>
+                    )}
+                    {focusedField === 'name' && !errors.name && (
+                      <p className="mt-2 text-xs text-gray-600 bg-blue-50 border border-blue-200 rounded-lg p-2">
+                        💡 {getFieldHelp('name')}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Objetivo */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label htmlFor="goal" className="flex items-center text-sm font-chatgpt-medium text-gray-700">
+                        <svg className="w-5 h-5 text-[#0264C5] mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                        Objetivo del Sprint <span className="text-red-500 ml-1">*</span>
+                      </label>
+                      <span className={`text-xs ${formData.goal.length > 400 ? 'text-orange-600 font-chatgpt-semibold' : 'text-gray-500'}`}>
+                        {formData.goal.length}/500
+                      </span>
+                    </div>
+                    <textarea
+                      id="goal"
+                      name="goal"
+                      value={formData.goal}
+                      onChange={handleInputChange}
+                      onFocus={() => setFocusedField('goal')}
+                      onBlur={() => setFocusedField(null)}
+                      maxLength={500}
+                      rows={4}
+                      className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-[#0264C5] focus:border-transparent transition-all resize-none ${
+                        errors.goal ? 'border-red-300' : formData.goal ? 'border-green-300 bg-green-50/30' : 'border-gray-300'
+                      }`}
+                      placeholder="Define el objetivo principal que se busca alcanzar en este sprint..."
+                    />
+                    {errors.goal && (
+                      <p className="mt-1 text-sm text-red-600 flex items-center space-x-1">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>{errors.goal}</span>
+                      </p>
+                    )}
+                    {focusedField === 'goal' && !errors.goal && (
+                      <p className="mt-2 text-xs text-gray-600 bg-blue-50 border border-blue-200 rounded-lg p-2">
+                        💡 {getFieldHelp('goal')}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Fechas */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label htmlFor="startDate" className="flex items-center text-sm font-chatgpt-medium text-gray-700 mb-2">
+                        <svg className="w-5 h-5 text-[#0264C5] mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        Fecha de Inicio <span className="text-red-500 ml-1">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="date"
+                          id="startDate"
+                          name="startDate"
+                          value={formData.startDate}
+                          onChange={handleInputChange}
+                          onFocus={() => setFocusedField('startDate')}
+                          onBlur={() => setFocusedField(null)}
+                          className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-[#0264C5] focus:border-transparent transition-all ${
+                            errors.startDate ? 'border-red-300' : formData.startDate ? 'border-green-300 bg-green-50/30' : 'border-gray-300'
+                          }`}
+                        />
+                        {formData.startDate && !errors.startDate && (
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                            <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                      {errors.startDate && (
+                        <p className="mt-1 text-sm text-red-600 flex items-center space-x-1">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span>{errors.startDate}</span>
+                        </p>
+                      )}
+                      {focusedField === 'startDate' && !errors.startDate && (
+                        <p className="mt-2 text-xs text-gray-600 bg-blue-50 border border-blue-200 rounded-lg p-2">
+                          💡 {getFieldHelp('startDate')}
+                        </p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label htmlFor="endDate" className="flex items-center text-sm font-chatgpt-medium text-gray-700 mb-2">
+                        <svg className="w-5 h-5 text-[#0264C5] mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                        Fecha de Fin <span className="text-red-500 ml-1">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="date"
+                          id="endDate"
+                          name="endDate"
+                          value={formData.endDate}
+                          onChange={handleInputChange}
+                          onFocus={() => setFocusedField('endDate')}
+                          onBlur={() => setFocusedField(null)}
+                          className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-[#0264C5] focus:border-transparent transition-all ${
+                            errors.endDate ? 'border-red-300' : formData.endDate ? 'border-green-300 bg-green-50/30' : 'border-gray-300'
+                          }`}
+                        />
+                        {formData.endDate && !errors.endDate && (
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                            <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
+                          </div>
+                        )}
+                      </div>
+                      {errors.endDate && (
+                        <p className="mt-1 text-sm text-red-600 flex items-center space-x-1">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span>{errors.endDate}</span>
+                        </p>
+                      )}
+                      {focusedField === 'endDate' && !errors.endDate && (
+                        <p className="mt-2 text-xs text-gray-600 bg-blue-50 border border-blue-200 rounded-lg p-2">
+                          💡 {getFieldHelp('endDate')}
+                        </p>
+                      )}
+                      {formData.startDate && formData.endDate && calculateDuration() > 0 && (
+                        <p className="mt-1 text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg p-2 flex items-center space-x-1">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span>Duración: <strong>{calculateDuration()} días</strong> ({Math.ceil(calculateDuration() / 7)} semanas)</span>
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Estado */}
+                  <div>
+                    <label htmlFor="status" className="flex items-center text-sm font-chatgpt-medium text-gray-700 mb-2">
+                      <svg className="w-5 h-5 text-[#0264C5] mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Estado del Sprint
+                    </label>
+                    <div className="relative">
+                      <select
+                        id="status"
+                        name="status"
+                        value={formData.status}
+                        onChange={handleInputChange}
+                        onFocus={() => setFocusedField('status')}
+                        onBlur={() => setFocusedField(null)}
+                        className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-[#0264C5] focus:border-transparent appearance-none bg-white transition-all"
+                      >
+                        <option value="PLANNING">📋 Planificación</option>
+                        <option value="ACTIVE">🏃 Activo</option>
+                        <option value="COMPLETED">🎉 Completado</option>
+                        <option value="CANCELLED">❌ Cancelado</option>
+                      </select>
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                        <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                      </div>
+                    </div>
+                    {focusedField === 'status' && (
+                      <p className="mt-2 text-xs text-gray-600 bg-blue-50 border border-blue-200 rounded-lg p-2">
+                        💡 {getFieldHelp('status')}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Resumen antes de guardar */}
+                {mode === 'create' && formData.name && formData.goal && formData.startDate && formData.endDate && (
+                  <div className="mt-6 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4">
+                    <div className="flex items-start space-x-3">
+                      <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center flex-shrink-0">
+                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="font-chatgpt-semibold text-gray-900 mb-2">¡Todo listo para crear!</h4>
+                        <p className="text-sm text-gray-700">
+                          Tu sprint "{formData.name}" está completo al <strong>{calculateProgress()}%</strong> con una duración de <strong>{calculateDuration()} días</strong>.
+                          {calculateProgress() === 100 ? ' ¡Perfecto!' : ''} 
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Botones */}
+                <div className="mt-8 flex flex-col sm:flex-row justify-between items-center gap-3">
+                  <div className="text-sm text-gray-600">
+                    <span className="font-chatgpt-medium">Tip:</span> Usa <kbd className="px-2 py-1 bg-gray-100 border border-gray-300 rounded text-xs">Tab</kbd> para navegar entre campos
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                    <a
+                      href={projectId > 0 ? `/proyectos/detalle?id=${projectId}` : '/proyectos'}
+                      className="bg-white border-2 border-gray-300 hover:border-gray-400 text-gray-700 px-6 py-3 rounded-xl font-chatgpt-medium transition-all duration-300 hover:scale-105 active:scale-95 text-center flex items-center justify-center space-x-2"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                      <span>Cancelar</span>
+                    </a>
+                    <button
+                      type="submit"
+                      disabled={isLoading || success}
+                      className="bg-gradient-to-r from-[#0264C5] to-[#11C0F1] hover:shadow-2xl text-white px-8 py-3 rounded-xl font-chatgpt-semibold transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center space-x-2 shadow-lg"
+                    >
+                      {isLoading ? (
+                        <>
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                          <span>{mode === 'edit' ? 'Actualizando...' : 'Creando Sprint...'}</span>
+                        </>
+                      ) : success ? (
+                        <>
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span>¡Guardado Exitosamente!</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                          <span>{mode === 'edit' ? 'Actualizar Sprint' : 'Crear Sprint'}</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </AppSidebarLayout>
+  );
+};
+
+export default SprintFormImproved;
+

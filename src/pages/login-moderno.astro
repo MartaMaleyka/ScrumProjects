@@ -1,0 +1,39 @@
+---
+import Layout from '../layouts/Layout.astro';
+import ModernLoginWrapper from '../components/auth/ModernLoginWrapper';
+---
+
+<Layout title="Login - Gestor de Proyectos">
+  <main>
+    <ModernLoginWrapper client:load />
+  </main>
+</Layout>
+
+<script>
+  // Configurar las fuentes Poppins e Inter
+  const fontLinks = [
+    '<link rel="preconnect" href="https://fonts.googleapis.com">',
+    '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>',
+    '<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">'
+  ];
+  
+  fontLinks.forEach(linkHTML => {
+    const link = document.createElement('div');
+    link.innerHTML = linkHTML;
+    const actualLink = link.querySelector('link');
+    if (actualLink && !document.head.querySelector(`link[href="${actualLink.getAttribute('href')}"]`)) {
+      document.head.appendChild(actualLink);
+    }
+  });
+
+  // Aplicar la fuente Inter como fallback
+  document.body.style.fontFamily = 'Inter, Poppins, system-ui, sans-serif';
+</script>
+
+<style>
+  /* Ejemplo de fuentes personalizadas - ya están cargadas desde Google Fonts */
+  body {
+    font-family: 'Inter', 'Poppins', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-weight: 400;
+  }
+</style>

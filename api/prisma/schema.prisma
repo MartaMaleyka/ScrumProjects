@@ -1,0 +1,412 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// Modelo de Usuario (simplificado para login y scrum)
+model User {
+  id          Int      @id @default(autoincrement())
+  email       String   @unique
+  username    String?  @unique
+  name        String
+  password    String?
+  avatar      String?
+  isActive    Boolean  @default(true) @map("is_active")
+  lastLogin   DateTime? @map("last_login")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relaciones Scrum
+  projectsCreated      Project[]              @relation("CreatedProjects")
+  projectsDeleted     Project[]               @relation("DeletedProjects")
+  projectMemberships   ProjectMember[]        @relation("ProjectMember")
+  ledTeams             ProjectTeam[]          @relation("TeamLead")
+  sprintMemberships     SprintMember[]         @relation("SprintMember")
+  assignedTasks        Task[]                 @relation("TaskAssignee")
+  dailyStandups        DailyStandup[]         @relation("DailyStandupParticipant")
+
+  @@map("users")
+}
+
+// ==========================================
+// MODELOS SCRUM
+// ==========================================
+
+model Project {
+  id          Int               @id @default(autoincrement())
+  name        String
+  description String?           @db.Text
+  status      ProjectStatus     @default(PLANNING)
+  startDate   DateTime?         @map("start_date")
+  endDate     DateTime?         @map("end_date")
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+  createdById Int               @map("created_by")
+  deletedAt   DateTime?         @map("deleted_at")
+  deletedBy   Int?              @map("deleted_by")
+  deletedByUser User?           @relation("DeletedProjects", fields: [deletedBy], references: [id])
+  createdBy   User              @relation("CreatedProjects", fields: [createdById], references: [id])
+  epics       Epic[]
+  members     ProjectMember[]
+  teams       ProjectTeam[]
+  templates   ProjectTemplate[]
+  sprints     Sprint[]
+  velocities  Velocity[]
+
+  @@index([deletedAt])
+  @@index([deletedBy])
+  @@index([createdById])
+  @@map("projects")
+}
+
+model Sprint {
+  id            Int                  @id @default(autoincrement())
+  name          String
+  description   String?             @db.Text
+  status        SprintStatus         @default(PLANNING)
+  startDate     DateTime?            @map("start_date")
+  endDate       DateTime?            @map("end_date")
+  goal          String?              @db.Text
+  velocity      Int?
+  projectId     Int                  @map("project_id")
+  createdAt     DateTime             @default(now()) @map("created_at")
+  updatedAt     DateTime             @updatedAt @map("updated_at")
+  burndownData  BurndownChart[]
+  dailyStandups DailyStandup[]
+  members       SprintMember[]
+  planning      SprintPlanning?
+  retrospective SprintRetrospective?
+  review        SprintReview?
+  project       Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  tasks         Task[]
+  userStories   UserStory[]
+  velocities    Velocity[]
+
+  @@index([projectId])
+  @@index([status])
+  @@index([startDate])
+  @@index([projectId, status])
+  @@map("sprints")
+}
+
+model Epic {
+  id            Int           @id @default(autoincrement())
+  title         String
+  description   String?       @db.Text
+  status        EpicStatus     @default(DRAFT)
+  priority      ScrumPriority  @default(MEDIUM)
+  businessValue String?        @map("business_value") @db.Text
+  projectId     Int            @map("project_id")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userStories   UserStory[]
+
+  @@map("epics")
+}
+
+model UserStory {
+  id                 Int             @id @default(autoincrement())
+  title              String
+  description        String?         @db.Text
+  acceptanceCriteria String?         @map("acceptance_criteria") @db.Text
+  storyPoints        Int?            @map("story_points")
+  status             UserStoryStatus @default(DRAFT)
+  priority           ScrumPriority   @default(MEDIUM)
+  epicId             Int             @map("epic_id")
+  sprintId           Int?            @map("sprint_id")
+  createdAt          DateTime        @default(now()) @map("created_at")
+  updatedAt          DateTime        @updatedAt @map("updated_at")
+  tasks              Task[]
+  epic               Epic            @relation(fields: [epicId], references: [id], onDelete: Cascade)
+  sprint             Sprint?         @relation(fields: [sprintId], references: [id])
+
+  @@index([epicId])
+  @@index([sprintId])
+  @@index([status])
+  @@map("user_stories")
+}
+
+model Task {
+  id             Int           @id @default(autoincrement())
+  title          String
+  description    String?       @db.Text
+  type           TaskType       @default(DEVELOPMENT)
+  status         TaskStatus     @default(TODO)
+  priority       ScrumPriority  @default(MEDIUM)
+  estimatedHours Float?         @map("estimated_hours")
+  actualHours    Float?         @map("actual_hours")
+  userStoryId    Int            @map("user_story_id")
+  sprintId       Int?           @map("sprint_id")
+  assigneeId     Int?           @map("assignee_id")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+  completedAt    DateTime?      @map("completed_at")
+  assignee       User?           @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  sprint         Sprint?         @relation(fields: [sprintId], references: [id])
+  userStory      UserStory       @relation(fields: [userStoryId], references: [id], onDelete: Cascade)
+
+  @@index([userStoryId])
+  @@index([sprintId])
+  @@index([assigneeId])
+  @@index([status])
+  @@index([priority])
+  @@index([sprintId, status])
+  @@index([assigneeId, status])
+  @@map("tasks")
+}
+
+model ProjectTeam {
+  id          Int             @id @default(autoincrement())
+  name        String
+  description String?         @db.Text
+  projectId   Int             @map("project_id")
+  teamLeadId  Int?            @map("team_lead_id")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+  members     ProjectMember[]
+  project     Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  teamLead    User?           @relation("TeamLead", fields: [teamLeadId], references: [id])
+  velocities  Velocity[]
+
+  @@map("project_teams")
+}
+
+model ProjectMember {
+  id        Int          @id @default(autoincrement())
+  userId    Int          @map("user_id")
+  projectId Int          @map("project_id")
+  teamId    Int?         @map("team_id")
+  role      ProjectRole   @default(DEVELOPER)
+  joinedAt  DateTime      @default(now()) @map("joined_at")
+  leftAt    DateTime?     @map("left_at")
+  project   Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  team      ProjectTeam?  @relation(fields: [teamId], references: [id])
+  user      User          @relation("ProjectMember", fields: [userId], references: [id])
+
+  @@unique([userId, projectId])
+  @@map("project_members")
+}
+
+model SprintMember {
+  id           Int      @id @default(autoincrement())
+  userId       Int      @map("user_id")
+  sprintId     Int      @map("sprint_id")
+  capacity     Float    @default(8.0)
+  availability Float    @default(1.0)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  sprint       Sprint   @relation(fields: [sprintId], references: [id], onDelete: Cascade)
+  user         User     @relation("SprintMember", fields: [userId], references: [id])
+
+  @@unique([userId, sprintId])
+  @@map("sprint_members")
+}
+
+model SprintPlanning {
+  id             Int      @id @default(autoincrement())
+  sprintId       Int      @unique @map("sprint_id")
+  plannedStories Int      @default(0) @map("planned_stories")
+  plannedPoints  Int      @default(0) @map("planned_points")
+  actualStories  Int      @default(0) @map("actual_stories")
+  actualPoints   Int      @default(0) @map("actual_points")
+  notes          String?  @db.Text
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  sprint         Sprint   @relation(fields: [sprintId], references: [id], onDelete: Cascade)
+
+  @@map("sprint_plannings")
+}
+
+model DailyStandup {
+  id            Int      @id @default(autoincrement())
+  sprintId      Int      @map("sprint_id")
+  participantId Int      @map("participant_id")
+  date          DateTime @default(now())
+  yesterdayWork String?  @map("yesterday_work") @db.Text
+  todayWork     String?  @map("today_work") @db.Text
+  blockers      String?  @db.Text
+  notes         String?  @db.Text
+  createdAt     DateTime @default(now()) @map("created_at")
+  participant   User     @relation("DailyStandupParticipant", fields: [participantId], references: [id])
+  sprint        Sprint   @relation(fields: [sprintId], references: [id], onDelete: Cascade)
+
+  @@unique([sprintId, participantId, date])
+  @@map("daily_standups")
+}
+
+model SprintRetrospective {
+  id            Int       @id @default(autoincrement())
+  sprintId      Int       @unique @map("sprint_id")
+  whatWentWell  String?   @map("what_went_well") @db.Text
+  whatWentWrong String?   @map("what_went_wrong") @db.Text
+  actionItems   String?   @map("action_items") @db.Text
+  teamMood      TeamMood  @default(NEUTRAL) @map("team_mood")
+  notes         String?   @db.Text
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  sprint        Sprint    @relation(fields: [sprintId], references: [id], onDelete: Cascade)
+
+  @@map("sprint_retrospectives")
+}
+
+model SprintReview {
+  id                  Int      @id @default(autoincrement())
+  sprintId            Int      @unique @map("sprint_id")
+  demoNotes           String?  @map("demo_notes") @db.Text
+  stakeholderFeedback String?  @map("stakeholder_feedback") @db.Text
+  completedStories    Int      @default(0) @map("completed_stories")
+  incompleteStories   Int      @default(0) @map("incomplete_stories")
+  notes               String?  @db.Text
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+  sprint              Sprint    @relation(fields: [sprintId], references: [id], onDelete: Cascade)
+
+  @@map("sprint_reviews")
+}
+
+model Velocity {
+  id                   Int          @id @default(autoincrement())
+  projectId            Int          @map("project_id")
+  sprintId             Int?         @map("sprint_id")
+  teamId               Int?         @map("team_id")
+  storyPointsCompleted Int          @default(0) @map("story_points_completed")
+  averageVelocity      Float?       @map("average_velocity")
+  createdAt            DateTime     @default(now()) @map("created_at")
+  project              Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sprint               Sprint?      @relation(fields: [sprintId], references: [id])
+  team                 ProjectTeam? @relation(fields: [teamId], references: [id])
+
+  @@map("velocities")
+}
+
+model BurndownChart {
+  id              Int      @id @default(autoincrement())
+  sprintId        Int      @map("sprint_id")
+  date            DateTime
+  remainingPoints Int      @map("remaining_points")
+  idealPoints     Int      @map("ideal_points")
+  actualPoints    Int      @map("actual_points")
+  createdAt       DateTime @default(now()) @map("created_at")
+  sprint          Sprint   @relation(fields: [sprintId], references: [id], onDelete: Cascade)
+
+  @@unique([sprintId, date])
+  @@map("burndown_charts")
+}
+
+model ProjectTemplate {
+  id                    Int              @id @default(autoincrement())
+  name                  String
+  description           String?          @db.Text
+  defaultSprintDuration Int              @default(14) @map("default_sprint_duration")
+  defaultStoryPoints    Int              @default(8) @map("default_story_points")
+  isActive              Boolean          @default(true) @map("is_active")
+  projectId             Int?             @map("project_id")
+  createdAt             DateTime         @default(now()) @map("created_at")
+  updatedAt             DateTime         @updatedAt @map("updated_at")
+  project                Project?         @relation(fields: [projectId], references: [id])
+  sprintTemplates       SprintTemplate[]
+
+  @@map("project_templates")
+}
+
+model SprintTemplate {
+  id                Int             @id @default(autoincrement())
+  name              String
+  duration          Int             @default(14)
+  ceremonies        String          @db.Text // JSON array stored as text in MySQL
+  projectTemplateId Int             @map("project_template_id")
+  createdAt         DateTime        @default(now()) @map("created_at")
+  updatedAt         DateTime        @updatedAt @map("updated_at")
+  projectTemplate   ProjectTemplate @relation(fields: [projectTemplateId], references: [id], onDelete: Cascade)
+
+  @@map("sprint_templates")
+}
+
+// ==========================================
+// ENUMS
+// ==========================================
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum SprintStatus {
+  PLANNING
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum EpicStatus {
+  DRAFT
+  READY
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum UserStoryStatus {
+  DRAFT
+  READY
+  IN_PROGRESS
+  TESTING
+  COMPLETED
+  CANCELLED
+}
+
+enum TaskType {
+  DEVELOPMENT
+  TESTING
+  DESIGN
+  DOCUMENTATION
+  BUG_FIX
+  RESEARCH
+  REFACTORING
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  TESTING
+  COMPLETED
+  CANCELLED
+}
+
+enum ProjectRole {
+  PRODUCT_OWNER
+  SCRUM_MASTER
+  DEVELOPER
+  TESTER
+  DESIGNER
+  STAKEHOLDER
+  OBSERVER
+  INFRAESTRUCTURA
+  REDES
+  SEGURIDAD
+}
+
+enum ScrumPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum TeamMood {
+  VERY_BAD
+  BAD
+  NEUTRAL
+  GOOD
+  VERY_GOOD
+}
+
