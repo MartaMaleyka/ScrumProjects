@@ -1,4 +1,4 @@
-# Gestor de Proyectos - IMHPA
+# Gestor de Proyectos
 
 Sistema de gestión de proyectos basado en metodología Scrum, con autenticación de usuarios.
 
@@ -38,13 +38,13 @@ Crear un archivo `.env` en la raíz del proyecto con:
 
 ```env
 # Configuración de Base de Datos MySQL
-DATABASE_URL="mysql://root:lachichi12@localhost:3306/gestor_proyectos"
+DATABASE_URL="mysql://usuario:tu_password@localhost:3306/gestor_proyectos"
 
 # Variables de entorno MySQL (alternativas)
 MYSQL_HOST=localhost
 MYSQL_PORT=3306
-MYSQL_USER=root
-MYSQL_PASSWORD=lachichi12
+MYSQL_USER=usuario
+MYSQL_PASSWORD=tu_password
 MYSQL_DATABASE=gestor_proyectos
 
 # Configuración de la aplicación
