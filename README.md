@@ -45,7 +45,7 @@ Sprintiva Community Edition es una solución completa y gratuita de gestión de 
 - ✅ **Internacionalización**: Soporte para Español e Inglés
 - ✅ **Papelera de Reciclaje**: Recuperación de elementos eliminados
 
-> 💡 **Nota**: Existe una edición Premium con funcionalidades adicionales (Roadmap, Gantt, Releases, GitHub Integration, Multi-tenant Dashboard). Para más información, contacta al equipo de desarrollo.
+> 💡 **Nota**: Existe una edición Premium con funcionalidades adicionales (Roadmap, Gantt, Releases, GitHub Integration, Multi-tenant Dashboard).
 
 ---
 
