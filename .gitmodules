@@ -9,6 +9,6 @@
 
 [submodule "premium"]
 	path = premium
-	url = https://github.com/MartaMaleyka/Sprintiva-Premium.git
+	url = https://github.com/MartaMaleyka/ScrumProjectPro.git
 	# Este repositorio debe ser PRIVATE
 
