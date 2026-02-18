@@ -1,0 +1,22 @@
+# Dockerfile para desarrollo del frontend (Astro)
+FROM node:18-alpine
+
+# Instalar dependencias del sistema si son necesarias
+RUN apk add --no-cache git
+
+# Establecer directorio de trabajo
+WORKDIR /app
+
+# Copiar archivos de configuración de dependencias
+COPY package*.json ./
+
+# Instalar dependencias del frontend
+# Usar --legacy-peer-deps para resolver conflictos de peer dependencies
+RUN npm install --legacy-peer-deps
+
+# Exponer puerto
+EXPOSE 4321
+
+# Comando por defecto (se puede sobrescribir en docker-compose)
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "4321"]
+

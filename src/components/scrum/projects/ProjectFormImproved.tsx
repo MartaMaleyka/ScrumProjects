@@ -14,12 +14,20 @@ interface ProjectFormImprovedProps {
   initialData?: Partial<ProjectFormData>;
   projectId?: string;
   mode?: 'create' | 'edit';
+  asModal?: boolean;
+  isOpen?: boolean;
+  onClose?: () => void;
+  onSuccess?: (project?: any) => void;
 }
 
 const ProjectFormImproved: React.FC<ProjectFormImprovedProps> = ({ 
   initialData, 
   projectId,
-  mode = 'create' 
+  mode = 'create',
+  asModal = false,
+  isOpen = true,
+  onClose,
+  onSuccess
 }) => {
   const [formData, setFormData] = useState<ProjectFormData>({
     name: initialData?.name || '',
@@ -149,15 +157,21 @@ const ProjectFormImproved: React.FC<ProjectFormImprovedProps> = ({
       
       setSuccess(true);
       
-      setTimeout(() => {
-        if (mode === 'edit' && projectId) {
-          window.location.href = `/proyectos/detalle?id=${projectId}`;
-        } else if (response.project?.id) {
-          window.location.href = `/proyectos/detalle?id=${response.project.id}`;
-        } else {
-          window.location.href = '/proyectos';
-        }
-      }, 1500);
+      if (asModal && onSuccess) {
+        setTimeout(() => {
+          onSuccess(response.project || response);
+        }, 1000);
+      } else {
+        setTimeout(() => {
+          if (mode === 'edit' && projectId) {
+            window.location.href = '/proyectos/detalle?id=' + projectId;
+          } else if (response.project?.id) {
+            window.location.href = '/proyectos/detalle?id=' + response.project.id;
+          } else {
+            window.location.href = '/proyectos';
+          }
+        }, 1500);
+      }
       
     } catch (err: any) {
       setError(err.message || 'Error al guardar el proyecto');
@@ -166,89 +180,16 @@ const ProjectFormImproved: React.FC<ProjectFormImprovedProps> = ({
     }
   };
 
-  return (
-    <AppSidebarLayout>
-      <div className="h-full flex flex-col">
-        {/* Breadcrumbs */}
-        <div className="bg-gradient-to-r from-cream to-gray-50 border-b border-gray-200 px-4 sm:px-6 py-3">
-          <div className="flex justify-center">
-            <div className="max-w-7xl w-full">
-              <nav className="flex items-center space-x-2 text-sm">
-                <a href="/proyectos" className="text-gray-neutral hover:text-blue-deep transition-colors duration-200">
-                  Proyectos
-                </a>
-                <svg className="w-4 h-4 text-gray-neutral" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-                <span className="text-blue-deep font-chatgpt-medium">
-                  {mode === 'edit' ? 'Editar Proyecto' : 'Nuevo Proyecto'}
-                </span>
-              </nav>
-            </div>
-          </div>
-        </div>
+  // Si es modal y no está abierto, no renderizar
+  if (asModal && !isOpen) {
+    return null;
+  }
 
-        {/* Header */}
-        <div className="bg-gradient-to-br from-cream to-gray-50 border-b border-gray-200 px-4 sm:px-6 py-4 sm:py-6">
-          <div className="flex justify-center">
-            <div className="max-w-7xl w-full">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <h1 className="text-2xl font-chatgpt-semibold text-gray-900 flex items-center space-x-2">
-                    <span>{mode === 'edit' ? 'Editar Proyecto' : 'Crear Nuevo Proyecto'}</span>
-                    {mode === 'create' && (
-                      <span className="text-lg">🚀</span>
-                    )}
-              </h1>
-              <p className="text-sm text-gray-neutral mt-1">
-                {mode === 'edit' 
-                  ? 'Modifica la información del proyecto' 
-                  : 'Completa los campos para crear un nuevo proyecto Scrum'}
-              </p>
-                  
-                  {/* Barra de progreso */}
-                  {mode === 'create' && !success && (
-                    <div className="mt-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-chatgpt-medium text-gray-700">
-                          Progreso del formulario
-                        </span>
-                        <span className="text-xs font-chatgpt-semibold text-blue-deep">
-                          {calculateProgress()}%
-                        </span>
-                      </div>
-                      <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
-                        <div 
-                          className="bg-gradient-to-r from-blue-deep to-blue-light h-2 rounded-full transition-all duration-500 ease-out"
-                          style={{ width: `${calculateProgress()}%` }}
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-                
-                <button
-                  onClick={() => setShowHelp(!showHelp)}
-                  className="ml-4 bg-purple-50 hover:bg-purple-100 border-2 border-purple-200 text-purple-700 px-4 py-2 rounded-xl font-chatgpt-medium transition-all duration-300 flex items-center space-x-2 hover:scale-105 active:scale-95"
-                  title="Ver ayuda"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span className="hidden sm:inline">Ayuda</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Formulario */}
-        <div className="flex-1 bg-gradient-to-br from-cream to-gray-50 px-4 sm:px-6 py-4 sm:py-6 overflow-y-auto">
-          <div className="flex justify-center">
-            <div className="max-w-4xl w-full space-y-4">
-              
-              {/* Panel de Ayuda */}
-              {showHelp && mode === 'create' && (
+  // Contenido del formulario (sin layout)
+  const formContent = (
+    <div className="space-y-4">
+      {/* Panel de Ayuda */}
+      {showHelp && mode === 'create' && (
                 <div className="bg-white rounded-2xl shadow-sm border-2 border-purple-200 p-6 animate-fadeIn">
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center space-x-3">
@@ -293,8 +234,8 @@ const ProjectFormImproved: React.FC<ProjectFormImprovedProps> = ({
                 </div>
               )}
 
-              {/* Plantillas Rápidas */}
-              {mode === 'create' && !formData.name && (
+      {/* Plantillas Rápidas */}
+      {mode === 'create' && !formData.name && (
                 <div className="bg-gradient-to-r from-blue-deep/5 via-blue-light/5 to-cream rounded-2xl shadow-sm border border-blue-deep/20 p-6">
                   <div className="flex items-center space-x-2 mb-4">
                     <svg className="w-5 h-5 text-blue-deep" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -328,7 +269,7 @@ const ProjectFormImproved: React.FC<ProjectFormImprovedProps> = ({
                 </div>
               )}
 
-              <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+      <form onSubmit={handleSubmit} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
                 {error && (
                   <div className="mb-6 bg-red-50 border border-red-200 rounded-xl p-4">
                     <div className="flex items-start">
@@ -611,15 +552,28 @@ const ProjectFormImproved: React.FC<ProjectFormImprovedProps> = ({
                     <span className="font-chatgpt-medium">Tip:</span> Usa <kbd className="px-2 py-1 bg-gray-100 border border-gray-300 rounded text-xs">Tab</kbd> para navegar entre campos
                   </div>
                   <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-                    <a
-                      href={mode === 'edit' && projectId ? `/proyectos/detalle?id=${projectId}` : '/proyectos'}
-                      className="bg-white border-2 border-gray-300 hover:border-gray-400 text-gray-700 px-6 py-3 rounded-xl font-chatgpt-medium transition-all duration-300 hover:scale-105 active:scale-95 text-center flex items-center justify-center space-x-2"
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                      </svg>
-                      <span>Cancelar</span>
-                    </a>
+                    {asModal ? (
+                      <button
+                        type="button"
+                        onClick={onClose}
+                        className="bg-white border-2 border-gray-300 hover:border-gray-400 text-gray-700 px-6 py-3 rounded-xl font-chatgpt-medium transition-all duration-300 hover:scale-105 active:scale-95 text-center flex items-center justify-center space-x-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        <span>Cancelar</span>
+                      </button>
+                    ) : (
+                      <a
+                        href={mode === 'edit' && projectId ? '/proyectos/detalle?id=' + projectId : '/proyectos'}
+                        className="bg-white border-2 border-gray-300 hover:border-gray-400 text-gray-700 px-6 py-3 rounded-xl font-chatgpt-medium transition-all duration-300 hover:scale-105 active:scale-95 text-center flex items-center justify-center space-x-2"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        <span>Cancelar</span>
+                      </a>
+                    )}
                     <button
                       type="submit"
                       disabled={isLoading || success}
@@ -648,7 +602,121 @@ const ProjectFormImproved: React.FC<ProjectFormImprovedProps> = ({
                     </button>
                   </div>
                 </div>
-              </form>
+      </form>
+    </div>
+  );
+
+  // Si es modal, renderizar con overlay
+  if (asModal) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          {/* Header del modal */}
+          <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-indigo-600 to-purple-600 flex items-center justify-between flex-shrink-0">
+            <h2 className="text-xl font-semibold text-white">
+              {mode === 'edit' ? 'Editar Proyecto' : 'Crear Nuevo Proyecto'}
+            </h2>
+            <button
+              onClick={onClose}
+              className="text-white hover:text-gray-200 transition-colors p-2 rounded-lg hover:bg-white/10"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          
+          {/* Contenido del formulario */}
+          <div className="flex-1 overflow-y-auto p-6">
+            {formContent}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Si no es modal, renderizar con AppSidebarLayout y layout completo
+  return (
+    <AppSidebarLayout>
+      <div className="h-full flex flex-col">
+        {/* Breadcrumbs */}
+        <div className="bg-gradient-to-r from-cream to-gray-50 border-b border-gray-200 px-4 sm:px-6 py-3">
+          <div className="flex justify-center">
+            <div className="max-w-7xl w-full">
+              <nav className="flex items-center space-x-2 text-sm">
+                <a href="/proyectos" className="text-gray-neutral hover:text-blue-deep transition-colors duration-200">
+                  Proyectos
+                </a>
+                <svg className="w-4 h-4 text-gray-neutral" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+                <span className="text-blue-deep font-chatgpt-medium">
+                  {mode === 'edit' ? 'Editar Proyecto' : 'Nuevo Proyecto'}
+                </span>
+              </nav>
+            </div>
+          </div>
+        </div>
+
+        {/* Header */}
+        <div className="bg-gradient-to-br from-cream to-gray-50 border-b border-gray-200 px-4 sm:px-6 py-4 sm:py-6">
+          <div className="flex justify-center">
+            <div className="max-w-7xl w-full">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h1 className="text-2xl font-chatgpt-semibold text-gray-900 flex items-center space-x-2">
+                    <span>{mode === 'edit' ? 'Editar Proyecto' : 'Crear Nuevo Proyecto'}</span>
+                    {mode === 'create' && (
+                      <span className="text-lg">🚀</span>
+                    )}
+                  </h1>
+                  <p className="text-sm text-gray-neutral mt-1">
+                    {mode === 'edit' 
+                      ? 'Modifica la información del proyecto' 
+                      : 'Completa los campos para crear un nuevo proyecto Scrum'}
+                  </p>
+                  
+                  {/* Barra de progreso */}
+                  {mode === 'create' && !success && (
+                    <div className="mt-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-chatgpt-medium text-gray-700">
+                          Progreso del formulario
+                        </span>
+                        <span className="text-xs font-chatgpt-semibold text-blue-deep">
+                          {calculateProgress()}%
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                        <div 
+                          className="bg-gradient-to-r from-blue-deep to-blue-light h-2 rounded-full transition-all duration-500 ease-out"
+                          style={{ width: calculateProgress() + '%' }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+                
+                <button
+                  onClick={() => setShowHelp(!showHelp)}
+                  className="ml-4 bg-purple-50 hover:bg-purple-100 border-2 border-purple-200 text-purple-700 px-4 py-2 rounded-xl font-chatgpt-medium transition-all duration-300 flex items-center space-x-2 hover:scale-105 active:scale-95"
+                  title="Ver ayuda"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="hidden sm:inline">Ayuda</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Formulario */}
+        <div className="flex-1 bg-gradient-to-br from-cream to-gray-50 px-4 sm:px-6 py-4 sm:py-6 overflow-y-auto">
+          <div className="flex justify-center">
+            <div className="max-w-4xl w-full">
+              {formContent}
             </div>
           </div>
         </div>

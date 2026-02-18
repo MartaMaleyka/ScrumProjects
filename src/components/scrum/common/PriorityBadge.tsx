@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import type { ScrumPriority } from '../../../types/scrum';
 
 interface PriorityBadgeProps {
@@ -8,12 +9,14 @@ interface PriorityBadgeProps {
 }
 
 const PriorityBadge: React.FC<PriorityBadgeProps> = ({ priority, size = 'md', showIcon = true }) => {
+  const { t } = useTranslation();
+  
   const getPriorityColor = (priority: ScrumPriority) => {
     const colorMap: Record<ScrumPriority, string> = {
-      'LOW': 'bg-green-500/20 text-green-300 border-green-500/30',
-      'MEDIUM': 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
-      'HIGH': 'bg-orange-500/20 text-orange-300 border-orange-500/30',
-      'CRITICAL': 'bg-red-500/20 text-red-300 border-red-500/30',
+      'LOW': 'bg-green-100 text-green-700 border-green-300',
+      'MEDIUM': 'bg-yellow-100 text-yellow-700 border-yellow-300',
+      'HIGH': 'bg-orange-100 text-orange-700 border-orange-300',
+      'CRITICAL': 'bg-red-100 text-red-700 border-red-300',
     };
 
     return colorMap[priority] || colorMap.MEDIUM;
@@ -48,10 +51,10 @@ const PriorityBadge: React.FC<PriorityBadgeProps> = ({ priority, size = 'md', sh
 
   const getPriorityText = (priority: ScrumPriority) => {
     const textMap: Record<ScrumPriority, string> = {
-      'LOW': 'Baja',
-      'MEDIUM': 'Media',
-      'HIGH': 'Alta',
-      'CRITICAL': 'Crítica',
+      'LOW': t('epics.priority.low', 'Baja'),
+      'MEDIUM': t('epics.priority.medium', 'Media'),
+      'HIGH': t('epics.priority.high', 'Alta'),
+      'CRITICAL': t('epics.priority.critical', 'Crítica'),
     };
 
     return textMap[priority];

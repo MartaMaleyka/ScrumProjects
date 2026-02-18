@@ -1,0 +1,14 @@
+# Git Submodules Configuration
+# 
+# Este archivo define los submodules del proyecto.
+# Para inicializar submodules después de clonar:
+#   git submodule update --init --recursive
+#
+# Para clonar con submodules desde el inicio:
+#   git clone --recursive <repository-url>
+
+[submodule "premium"]
+	path = premium
+	url = https://github.com/MartaMaleyka/Sprintiva-Premium.git
+	# Este repositorio debe ser PRIVATE
+

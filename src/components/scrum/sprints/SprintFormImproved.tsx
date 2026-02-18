@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import AppSidebarLayout from '../../layout/AppSidebarLayout';
 import { API_BASE_URL, authenticatedRequest } from '../../../config/api';
 
@@ -15,14 +16,25 @@ interface SprintFormImprovedProps {
   initialData?: Partial<SprintFormData>;
   sprintId?: string;
   mode?: 'create' | 'edit';
+  asModal?: boolean;
+  isOpen?: boolean;
+  projectId?: number;
+  onSuccess?: () => void;
+  onClose?: () => void;
 }
 
 const SprintFormImproved: React.FC<SprintFormImprovedProps> = ({ 
   initialData, 
   sprintId,
-  mode = 'create' 
+  mode = 'create',
+  asModal = false,
+  isOpen = true,
+  projectId: propProjectId,
+  onSuccess,
+  onClose
 }) => {
-  const [projectId, setProjectId] = useState<number>(initialData?.projectId || 0);
+  const { t } = useTranslation();
+  const [projectId, setProjectId] = useState<number>(propProjectId || initialData?.projectId || 0);
   const [formData, setFormData] = useState<SprintFormData>({
     name: initialData?.name || '',
     goal: initialData?.goal || '',
@@ -61,7 +73,7 @@ const SprintFormImproved: React.FC<SprintFormImprovedProps> = ({
             setProjectId(sprint.projectId || 0);
           }
         } catch (err: any) {
-          setError('Error al cargar los datos del sprint');
+          setError(t('sprints.form.loadError', 'Error al cargar los datos del sprint'));
         } finally {
           setIsLoadingData(false);
         }
@@ -73,7 +85,10 @@ const SprintFormImproved: React.FC<SprintFormImprovedProps> = ({
 
   // Obtener projectId de la URL si no viene en initialData (modo crear)
   useEffect(() => {
-    if (typeof window !== 'undefined' && mode === 'create' && !initialData?.projectId) {
+    if (propProjectId) {
+      setProjectId(propProjectId);
+      setFormData(prev => ({ ...prev, projectId: propProjectId }));
+    } else if (typeof window !== 'undefined' && mode === 'create' && !initialData?.projectId) {
       const urlParams = new URLSearchParams(window.location.search);
       const urlProjectId = urlParams.get('projectId');
       if (urlProjectId) {
@@ -82,7 +97,7 @@ const SprintFormImproved: React.FC<SprintFormImprovedProps> = ({
         setFormData(prev => ({ ...prev, projectId: pid }));
       }
     }
-  }, [initialData, mode]);
+  }, [propProjectId, initialData, mode]);
 
   // Calcular progreso del formulario
   const calculateProgress = () => {
@@ -100,11 +115,11 @@ const SprintFormImproved: React.FC<SprintFormImprovedProps> = ({
 
   const getFieldHelp = (field: string): string => {
     const helpTexts: Record<string, string> = {
-      name: 'Nombra el sprint de forma clara. Ejemplo: "Sprint 1 - Autenticación" o "Sprint 3 - Dashboard Analytics"',
-      goal: 'Define el objetivo principal del sprint. ¿Qué valor o funcionalidad se entregará al finalizar? Debe ser medible y alcanzable.',
-      startDate: 'Fecha de inicio del sprint. Usualmente es lunes. Los sprints típicamente duran 1-4 semanas.',
-      endDate: 'Fecha de fin del sprint. Debe dar tiempo suficiente para completar las user stories planificadas.',
-      status: 'PLANNING: Planificando user stories. ACTIVE: Sprint en ejecución. COMPLETED: Sprint finalizado con retrospectiva.'
+      name: t('sprints.form.helpName', 'Nombra el sprint de forma clara. Ejemplo: "Sprint 1 - Autenticación" o "Sprint 3 - Dashboard Analytics"'),
+      goal: t('sprints.form.helpGoal', 'Define el objetivo principal del sprint. ¿Qué valor o funcionalidad se entregará al finalizar? Debe ser medible y alcanzable.'),
+      startDate: t('sprints.form.helpStartDate', 'Fecha de inicio del sprint. Usualmente es lunes. Los sprints típicamente duran 1-4 semanas.'),
+      endDate: t('sprints.form.helpEndDate', 'Fecha de fin del sprint. Debe dar tiempo suficiente para completar las user stories planificadas.'),
+      status: t('sprints.form.helpStatus', 'PLANNING: Planificando user stories. ACTIVE: Sprint en ejecución. COMPLETED: Sprint finalizado con retrospectiva.')
     };
     return helpTexts[field] || '';
   };
@@ -138,35 +153,35 @@ const SprintFormImproved: React.FC<SprintFormImprovedProps> = ({
     const newErrors: Record<string, string> = {};
 
     if (!formData.name.trim()) {
-      newErrors.name = 'El nombre del sprint es obligatorio';
+      newErrors.name = t('sprints.form.errors.nameRequired', 'El nombre del sprint es obligatorio');
     } else if (formData.name.trim().length < 3) {
-      newErrors.name = 'El nombre debe tener al menos 3 caracteres';
+      newErrors.name = t('sprints.form.errors.nameMinLength', 'El nombre debe tener al menos 3 caracteres');
     } else if (formData.name.length > 100) {
-      newErrors.name = 'El nombre no puede exceder 100 caracteres';
+      newErrors.name = t('sprints.form.errors.nameMaxLength', 'El nombre no puede exceder 100 caracteres');
     }
 
     if (!formData.goal?.trim()) {
-      newErrors.goal = 'El objetivo del sprint es obligatorio';
+      newErrors.goal = t('sprints.form.errors.goalRequired', 'El objetivo del sprint es obligatorio');
     } else if (formData.goal.trim().length < 10) {
-      newErrors.goal = 'El objetivo debe tener al menos 10 caracteres';
+      newErrors.goal = t('sprints.form.errors.goalMinLength', 'El objetivo debe tener al menos 10 caracteres');
     } else if (formData.goal.length > 500) {
-      newErrors.goal = 'El objetivo no puede exceder 500 caracteres';
+      newErrors.goal = t('sprints.form.errors.goalMaxLength', 'El objetivo no puede exceder 500 caracteres');
     }
 
     if (!formData.startDate) {
-      newErrors.startDate = 'La fecha de inicio es obligatoria';
+      newErrors.startDate = t('sprints.form.errors.startDateRequired', 'La fecha de inicio es obligatoria');
     }
 
     if (!formData.endDate) {
-      newErrors.endDate = 'La fecha de fin es obligatoria';
+      newErrors.endDate = t('sprints.form.errors.endDateRequired', 'La fecha de fin es obligatoria');
     }
 
     if (formData.startDate && formData.endDate && formData.startDate >= formData.endDate) {
-      newErrors.endDate = 'La fecha de fin debe ser posterior a la fecha de inicio';
+      newErrors.endDate = t('sprints.form.errors.endDateAfterStart', 'La fecha de fin debe ser posterior a la fecha de inicio');
     }
 
     if (!formData.projectId || formData.projectId <= 0) {
-      newErrors.projectId = 'Debes seleccionar un proyecto';
+      newErrors.projectId = t('sprints.form.errors.projectRequired', 'Debes seleccionar un proyecto');
     }
 
     setErrors(newErrors);
@@ -216,12 +231,18 @@ const SprintFormImproved: React.FC<SprintFormImprovedProps> = ({
         }
       }
       
-      setTimeout(() => {
-        window.location.href = `/proyectos/detalle?id=${formData.projectId}`;
-      }, 1500);
+      if (asModal && onSuccess) {
+        setTimeout(() => {
+          onSuccess();
+        }, 500);
+      } else {
+        setTimeout(() => {
+          window.location.href = `/proyectos/detalle?id=${formData.projectId}`;
+        }, 1500);
+      }
       
     } catch (err: any) {
-      setError(err.message || 'Error al guardar el sprint');
+      setError(err.message || t('sprints.form.saveError', 'Error al guardar el sprint'));
     } finally {
       setIsLoading(false);
     }
@@ -229,22 +250,56 @@ const SprintFormImproved: React.FC<SprintFormImprovedProps> = ({
 
   // Mostrar loading mientras se cargan los datos en modo edición
   if (isLoadingData) {
+    if (asModal) {
+      return (
+        <div className="h-full flex items-center justify-center p-6">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">{t('sprints.form.loadingData', 'Cargando datos del sprint...')}</p>
+          </div>
+        </div>
+      );
+    }
     return (
       <AppSidebarLayout>
         <div className="h-full flex items-center justify-center">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#0264C5] mx-auto mb-4"></div>
-            <p className="text-gray-neutral">Cargando datos del sprint...</p>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">{t('sprints.form.loadingData', 'Cargando datos del sprint...')}</p>
           </div>
         </div>
       </AppSidebarLayout>
     );
   }
 
-  return (
-    <AppSidebarLayout>
-      <div className="h-full flex flex-col">
-        {/* Breadcrumbs */}
+  const content = (
+    <div className={asModal ? 'flex flex-col h-full min-h-0' : 'h-full flex flex-col'}>
+      {/* Header del Modal */}
+      {asModal && (
+        <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-indigo-600 to-purple-600 flex items-center justify-between flex-shrink-0">
+          <div>
+            <h2 className="text-xl font-bold text-white">
+              {mode === 'edit' ? t('sprints.editSprint', 'Editar Sprint') : t('sprints.form.createTitle', 'Crear Nuevo Sprint')}
+            </h2>
+            <p className="text-indigo-100 text-sm mt-1">
+              {t('sprints.form.subtitle', 'Los sprints son iteraciones de trabajo de duración fija (1-4 semanas)')}
+            </p>
+          </div>
+          {onClose && (
+            <button
+              onClick={onClose}
+              className="text-white/80 hover:text-white transition-colors p-2 hover:bg-white/10 rounded-lg"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Breadcrumbs - Solo si no es modal */}
+      {!asModal && (
         <div className="bg-gradient-to-r from-[#F2ECDF] to-gray-50 border-b border-gray-200 px-4 sm:px-6 py-3">
           <div className="flex justify-center">
             <div className="max-w-7xl w-full">
@@ -266,29 +321,31 @@ const SprintFormImproved: React.FC<SprintFormImprovedProps> = ({
                   </>
                 )}
                 <span className="text-[#0264C5] font-chatgpt-medium">
-                  {mode === 'edit' ? 'Editar Sprint' : 'Nuevo Sprint'}
+                  {mode === 'edit' ? t('sprints.editSprint', 'Editar Sprint') : t('sprints.newSprint', 'Nuevo Sprint')}
                 </span>
               </nav>
             </div>
           </div>
         </div>
+      )}
 
-        {/* Header */}
+      {/* Header - Solo si no es modal */}
+      {!asModal && (
         <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4 sm:py-6">
           <div className="flex justify-center">
             <div className="max-w-7xl w-full">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <h1 className="text-2xl font-chatgpt-semibold text-gray-900 flex items-center space-x-2">
-                    <span>{mode === 'edit' ? 'Editar Sprint' : 'Crear Nuevo Sprint'}</span>
+                    <span>{mode === 'edit' ? t('sprints.editSprint', 'Editar Sprint') : t('sprints.form.createTitle', 'Crear Nuevo Sprint')}</span>
                     {mode === 'create' && (
                       <span className="text-lg">🏃</span>
                     )}
                   </h1>
                   <p className="text-sm text-[#777777] mt-1">
                     {mode === 'edit' 
-                      ? 'Modifica la información del sprint' 
-                      : 'Los sprints son iteraciones de trabajo de duración fija (1-4 semanas)'}
+                      ? t('sprints.form.editSubtitle', 'Modifica la información del sprint')
+                      : t('sprints.form.subtitle', 'Los sprints son iteraciones de trabajo de duración fija (1-4 semanas)')}
                   </p>
                   
                   {/* Barra de progreso */}
@@ -298,13 +355,13 @@ const SprintFormImproved: React.FC<SprintFormImprovedProps> = ({
                         <span className="text-xs font-chatgpt-medium text-gray-700">
                           Progreso del formulario
                         </span>
-                        <span className="text-xs font-chatgpt-semibold text-[#0264C5]">
+                        <span className="text-xs font-chatgpt-semibold text-indigo-600">
                           {calculateProgress()}%
                         </span>
                       </div>
                       <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
                         <div 
-                          className="bg-gradient-to-r from-[#0264C5] to-[#11C0F1] h-2 rounded-full transition-all duration-500 ease-out"
+                          className="bg-gradient-to-r from-indigo-600 to-purple-600 h-2 rounded-full transition-all duration-500 ease-out"
                           style={{ width: `${calculateProgress()}%` }}
                         />
                       </div>
@@ -315,22 +372,23 @@ const SprintFormImproved: React.FC<SprintFormImprovedProps> = ({
                 <button
                   onClick={() => setShowHelp(!showHelp)}
                   className="ml-4 bg-purple-50 hover:bg-purple-100 border-2 border-purple-200 text-purple-700 px-4 py-2 rounded-xl font-chatgpt-medium transition-all duration-300 flex items-center space-x-2 hover:scale-105 active:scale-95"
-                  title="Ver ayuda"
+                  title={t('sprints.form.viewHelp', 'Ver ayuda')}
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  <span className="hidden sm:inline">Ayuda</span>
+                  <span className="hidden sm:inline">{t('epics.form.help', 'Ayuda')}</span>
                 </button>
               </div>
             </div>
           </div>
         </div>
+      )}
 
-        {/* Formulario */}
-        <div className="flex-1 bg-gradient-to-br from-[#F2ECDF] to-gray-50 px-4 sm:px-6 py-4 sm:py-6 overflow-y-auto">
-          <div className="flex justify-center">
-            <div className="max-w-4xl w-full space-y-4">
+      {/* Formulario */}
+      <div className={asModal ? 'flex-1 overflow-y-auto p-6 min-h-0' : 'flex-1 bg-gradient-to-br from-[#F2ECDF] to-gray-50 px-4 sm:px-6 py-4 sm:py-6 overflow-y-auto'}>
+          <div className={asModal ? 'w-full space-y-4' : 'flex justify-center'}>
+            <div className={asModal ? 'w-full space-y-4' : 'max-w-4xl w-full space-y-4'}>
               
               {/* Panel de Ayuda */}
               {showHelp && mode === 'create' && (
@@ -343,8 +401,8 @@ const SprintFormImproved: React.FC<SprintFormImprovedProps> = ({
                         </svg>
                       </div>
                       <div>
-                        <h3 className="text-lg font-chatgpt-semibold text-gray-900">Guía Rápida - Sprints</h3>
-                        <p className="text-sm text-[#777777]">Mejores prácticas para sprints efectivos</p>
+                        <h3 className="text-lg font-chatgpt-semibold text-gray-900">{t('sprints.form.helpGuide', 'Guía Rápida - Sprints')}</h3>
+                        <p className="text-sm text-[#777777]">{t('sprints.form.helpTips', 'Mejores prácticas para sprints efectivos')}</p>
                       </div>
                     </div>
                     <button
@@ -360,19 +418,19 @@ const SprintFormImproved: React.FC<SprintFormImprovedProps> = ({
                   <div className="space-y-3 text-sm text-gray-700 mb-4">
                     <div className="flex items-start space-x-2">
                       <span className="text-green-500 mt-1">✓</span>
-                      <p><strong>Duración fija:</strong> Los sprints típicamente duran 1-4 semanas. Dos semanas es lo más común.</p>
+                      <p><strong>{t('sprints.form.helpFixedDuration', 'Duración fija')}:</strong> {t('sprints.form.helpFixedDurationDesc', 'Los sprints típicamente duran 1-4 semanas. Dos semanas es lo más común.')}</p>
                     </div>
                     <div className="flex items-start space-x-2">
                       <span className="text-green-500 mt-1">✓</span>
-                      <p><strong>Objetivo claro:</strong> Define qué valor o funcionalidad se entregará al finalizar el sprint.</p>
+                      <p><strong>{t('sprints.form.helpClearGoal', 'Objetivo claro')}:</strong> {t('sprints.form.helpClearGoalDesc', 'Define qué valor o funcionalidad se entregará al finalizar el sprint.')}</p>
                     </div>
                     <div className="flex items-start space-x-2">
                       <span className="text-green-500 mt-1">✓</span>
-                      <p><strong>Sprint Planning:</strong> Selecciona user stories del backlog y desglósalas en tareas.</p>
+                      <p><strong>{t('sprints.form.helpPlanning', 'Sprint Planning')}:</strong> {t('sprints.form.helpPlanningDesc', 'Selecciona user stories del backlog y desglósalas en tareas.')}</p>
                     </div>
                     <div className="flex items-start space-x-2">
                       <span className="text-blue-500 mt-1">💡</span>
-                      <p><strong>Siguiente paso:</strong> Después de crear el sprint, asigna user stories desde el backlog del proyecto.</p>
+                      <p><strong>{t('sprints.form.helpNextStep', 'Siguiente paso')}:</strong> {t('sprints.form.helpNextStepDesc', 'Después de crear el sprint, asigna user stories desde el backlog del proyecto.')}</p>
                     </div>
                   </div>
                 </div>
@@ -385,9 +443,9 @@ const SprintFormImproved: React.FC<SprintFormImprovedProps> = ({
                     <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                     </svg>
-                    <h3 className="text-lg font-chatgpt-semibold text-gray-900">Plantillas de Sprints</h3>
+                    <h3 className="text-lg font-chatgpt-semibold text-gray-900">{t('sprints.form.templatesTitle', 'Plantillas de Sprints')}</h3>
                   </div>
-                  <p className="text-sm text-gray-700 mb-4">Comienza con una plantilla predefinida según la fase del proyecto</p>
+                  <p className="text-sm text-gray-700 mb-4">{t('sprints.form.templatesDesc', 'Comienza con una plantilla predefinida según la fase del proyecto')}</p>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {getSprintTemplates().map((template, index) => (
                       <button
@@ -432,7 +490,7 @@ const SprintFormImproved: React.FC<SprintFormImprovedProps> = ({
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                       <p className="text-sm text-green-800">
-                        {mode === 'edit' ? '¡Sprint actualizado exitosamente!' : '¡Sprint creado exitosamente!'}
+                        {mode === 'edit' ? t('sprints.form.successUpdate', '¡Sprint actualizado exitosamente!') : t('sprints.form.successCreate', '¡Sprint creado exitosamente!')}
                       </p>
                     </div>
                   </div>
@@ -446,7 +504,7 @@ const SprintFormImproved: React.FC<SprintFormImprovedProps> = ({
                         <svg className="w-5 h-5 text-[#0264C5] mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        Nombre del Sprint <span className="text-red-500 ml-1">*</span>
+                        {t('sprints.form.nameLabel', 'Nombre del Sprint')} <span className="text-red-500 ml-1">*</span>
                       </label>
                       <span className={`text-xs ${formData.name.length > 80 ? 'text-orange-600 font-chatgpt-semibold' : 'text-gray-500'}`}>
                         {formData.name.length}/100
@@ -465,7 +523,7 @@ const SprintFormImproved: React.FC<SprintFormImprovedProps> = ({
                         className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-[#0264C5] focus:border-transparent transition-all ${
                           errors.name ? 'border-red-300' : formData.name ? 'border-green-300 bg-green-50/30' : 'border-gray-300'
                         }`}
-                        placeholder="Ej: Sprint 1 - Mejoras de UX"
+                        placeholder={t('sprints.form.namePlaceholder', 'Ej: Sprint 1 - Mejoras de UX')}
                       />
                       {formData.name && !errors.name && (
                         <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -497,7 +555,7 @@ const SprintFormImproved: React.FC<SprintFormImprovedProps> = ({
                         <svg className="w-5 h-5 text-[#0264C5] mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                         </svg>
-                        Objetivo del Sprint <span className="text-red-500 ml-1">*</span>
+                        {t('sprints.goal', 'Objetivo del Sprint')} <span className="text-red-500 ml-1">*</span>
                       </label>
                       <span className={`text-xs ${formData.goal.length > 400 ? 'text-orange-600 font-chatgpt-semibold' : 'text-gray-500'}`}>
                         {formData.goal.length}/500
@@ -515,7 +573,7 @@ const SprintFormImproved: React.FC<SprintFormImprovedProps> = ({
                       className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-2 focus:ring-[#0264C5] focus:border-transparent transition-all resize-none ${
                         errors.goal ? 'border-red-300' : formData.goal ? 'border-green-300 bg-green-50/30' : 'border-gray-300'
                       }`}
-                      placeholder="Define el objetivo principal que se busca alcanzar en este sprint..."
+                      placeholder={t('sprints.form.goalPlaceholder', 'Define el objetivo principal que se busca alcanzar en este sprint...')}
                     />
                     {errors.goal && (
                       <p className="mt-1 text-sm text-red-600 flex items-center space-x-1">
@@ -539,7 +597,7 @@ const SprintFormImproved: React.FC<SprintFormImprovedProps> = ({
                         <svg className="w-5 h-5 text-[#0264C5] mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                        Fecha de Inicio <span className="text-red-500 ml-1">*</span>
+                        {t('sprints.form.startDateLabel', 'Fecha de Inicio')} <span className="text-red-500 ml-1">*</span>
                       </label>
                       <div className="relative">
                         <input
@@ -582,7 +640,7 @@ const SprintFormImproved: React.FC<SprintFormImprovedProps> = ({
                         <svg className="w-5 h-5 text-[#0264C5] mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                         </svg>
-                        Fecha de Fin <span className="text-red-500 ml-1">*</span>
+                        {t('sprints.form.endDateLabel', 'Fecha de Fin')} <span className="text-red-500 ml-1">*</span>
                       </label>
                       <div className="relative">
                         <input
@@ -623,7 +681,7 @@ const SprintFormImproved: React.FC<SprintFormImprovedProps> = ({
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
-                          <span>Duración: <strong>{calculateDuration()} días</strong> ({Math.ceil(calculateDuration() / 7)} semanas)</span>
+                          <span>{t('sprints.duration', 'Duración')}: <strong>{calculateDuration()} {t('sprints.days', 'días')}</strong> ({Math.ceil(calculateDuration() / 7)} {t('sprints.weeks', 'semanas')})</span>
                         </p>
                       )}
                     </div>
@@ -635,7 +693,7 @@ const SprintFormImproved: React.FC<SprintFormImprovedProps> = ({
                       <svg className="w-5 h-5 text-[#0264C5] mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      Estado del Sprint
+                      {t('sprints.statusLabel', 'Estado del Sprint')}
                     </label>
                     <div className="relative">
                       <select
@@ -647,10 +705,10 @@ const SprintFormImproved: React.FC<SprintFormImprovedProps> = ({
                         onBlur={() => setFocusedField(null)}
                         className="w-full px-4 py-3 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-[#0264C5] focus:border-transparent appearance-none bg-white transition-all"
                       >
-                        <option value="PLANNING">📋 Planificación</option>
-                        <option value="ACTIVE">🏃 Activo</option>
-                        <option value="COMPLETED">🎉 Completado</option>
-                        <option value="CANCELLED">❌ Cancelado</option>
+                        <option value="PLANNING">📋 {t('sprints.status.planning', 'Planificación')}</option>
+                        <option value="ACTIVE">🏃 {t('sprints.status.active', 'Activo')}</option>
+                        <option value="COMPLETED">🎉 {t('sprints.status.completed', 'Completado')}</option>
+                        <option value="CANCELLED">❌ {t('sprints.status.cancelled', 'Cancelado')}</option>
                       </select>
                       <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
                         <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -676,10 +734,10 @@ const SprintFormImproved: React.FC<SprintFormImprovedProps> = ({
                         </svg>
                       </div>
                       <div className="flex-1">
-                        <h4 className="font-chatgpt-semibold text-gray-900 mb-2">¡Todo listo para crear!</h4>
+                        <h4 className="font-chatgpt-semibold text-gray-900 mb-2">{t('sprints.form.readyToCreate', '¡Todo listo para crear!')}</h4>
                         <p className="text-sm text-gray-700">
-                          Tu sprint "{formData.name}" está completo al <strong>{calculateProgress()}%</strong> con una duración de <strong>{calculateDuration()} días</strong>.
-                          {calculateProgress() === 100 ? ' ¡Perfecto!' : ''} 
+                          {t('sprints.form.sprintComplete', 'Tu sprint "{{name}}" está completo al', { name: formData.name })} <strong>{calculateProgress()}%</strong> {t('sprints.form.withDuration', 'con una duración de')} <strong>{calculateDuration()} {t('sprints.days', 'días')}</strong>.
+                          {calculateProgress() === 100 ? ` ${t('sprints.form.perfect', '¡Perfecto!')}` : ''} 
                         </p>
                       </div>
                     </div>
@@ -699,41 +757,73 @@ const SprintFormImproved: React.FC<SprintFormImprovedProps> = ({
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                       </svg>
-                      <span>Cancelar</span>
+                      <span>{t('common.cancel', 'Cancelar')}</span>
                     </a>
                     <button
                       type="submit"
                       disabled={isLoading || success}
-                      className="bg-gradient-to-r from-[#0264C5] to-[#11C0F1] hover:shadow-2xl text-white px-8 py-3 rounded-xl font-chatgpt-semibold transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center space-x-2 shadow-lg"
+                      className="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 hover:shadow-2xl text-white px-8 py-3 rounded-xl font-chatgpt-semibold transition-all duration-300 hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 flex items-center justify-center space-x-2 shadow-lg"
                     >
                       {isLoading ? (
                         <>
                           <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                          <span>{mode === 'edit' ? 'Actualizando...' : 'Creando Sprint...'}</span>
+                          <span>{mode === 'edit' ? t('sprints.form.updating', 'Actualizando...') : t('sprints.form.creating', 'Creando Sprint...')}</span>
                         </>
                       ) : success ? (
                         <>
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                           </svg>
-                          <span>¡Guardado Exitosamente!</span>
+                          <span>{t('sprints.form.savedSuccessfully', '¡Guardado Exitosamente!')}</span>
                         </>
                       ) : (
                         <>
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                           </svg>
-                          <span>{mode === 'edit' ? 'Actualizar Sprint' : 'Crear Sprint'}</span>
+                          <span>{mode === 'edit' ? t('sprints.form.updateSprint', 'Actualizar Sprint') : t('sprints.createSprint', 'Crear Sprint')}</span>
                         </>
                       )}
                     </button>
                   </div>
                 </div>
               </form>
-            </div>
           </div>
         </div>
       </div>
+    </div>
+  );
+
+  // Si es modal y no está abierto, no renderizar nada
+  if (asModal && !isOpen) {
+    return null;
+  }
+
+  // Si es modal, envolver en contenedor de modal con overlay
+  if (asModal) {
+    return (
+      <div 
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9999] flex items-center justify-center p-4 overflow-y-auto"
+        onClick={(e) => {
+          // Cerrar modal si se hace clic en el overlay (no en el contenido)
+          if (e.target === e.currentTarget && onClose) {
+            onClose();
+          }
+        }}
+      >
+        <div 
+          className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {content}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <AppSidebarLayout>
+      {content}
     </AppSidebarLayout>
   );
 };

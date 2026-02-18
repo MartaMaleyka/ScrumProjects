@@ -4,6 +4,7 @@ const { body, validationResult } = require('express-validator');
 const { prisma } = require('../config/database');
 const { generateInternalToken } = require('../config/auth');
 const { authenticateToken } = require('../middleware/auth');
+const { getAllFeatures, isCommunityEdition, isFeatureEnabled } = require('../config/features');
 
 const router = express.Router();
 
@@ -47,11 +48,20 @@ router.post('/login', [
         username: true,
         name: true,
         password: true,
+        globalRole: true,
+        organizationId: true,
         avatar: true,
         isActive: true,
         lastLogin: true,
         createdAt: true,
-        updatedAt: true
+        updatedAt: true,
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            slug: true
+          }
+        }
       }
     });
 
@@ -72,6 +82,15 @@ router.post('/login', [
       });
     }
 
+    // Bloquear SUPER_ADMIN en Community Edition
+    if (user.globalRole === 'SUPER_ADMIN' && isCommunityEdition() && !isFeatureEnabled('super_admin')) {
+      return res.status(403).json({ 
+        success: false,
+        error: 'Acceso restringido',
+        message: 'El rol Super Administrador no está disponible en la edición Community. Se requiere Premium Edition.' 
+      });
+    }
+
     // Verificar contraseña
     const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) {
@@ -88,12 +107,33 @@ router.post('/login', [
       data: { lastLogin: new Date() }
     });
 
-    // Generar token JWT
+    // Obtener organización del usuario
+    const userWithOrg = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        globalRole: true,
+        organizationId: true,
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            slug: true
+          }
+        }
+      }
+    });
+
+    // Generar token JWT (incluir globalRole y organizationId)
     const token = generateInternalToken({
       id: user.id,
       userId: user.id,
       email: user.email,
-      username: user.username
+      username: user.username,
+      globalRole: user.globalRole,
+      organizationId: userWithOrg.organizationId
     });
 
     // Devolver respuesta exitosa
@@ -148,11 +188,20 @@ router.post('/login-unified', [
         username: true,
         name: true,
         password: true,
+        globalRole: true,
+        organizationId: true,
         avatar: true,
         isActive: true,
         lastLogin: true,
         createdAt: true,
-        updatedAt: true
+        updatedAt: true,
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            slug: true
+          }
+        }
       }
     });
 
@@ -173,6 +222,15 @@ router.post('/login-unified', [
       });
     }
 
+    // Bloquear SUPER_ADMIN en Community Edition
+    if (user.globalRole === 'SUPER_ADMIN' && isCommunityEdition() && !isFeatureEnabled('super_admin')) {
+      return res.status(403).json({ 
+        success: false,
+        error: 'Acceso restringido',
+        message: 'El rol Super Administrador no está disponible en la edición Community. Se requiere Premium Edition.' 
+      });
+    }
+
     // Verificar contraseña
     const isValidPassword = await bcrypt.compare(password, user.password);
     if (!isValidPassword) {
@@ -189,12 +247,33 @@ router.post('/login-unified', [
       data: { lastLogin: new Date() }
     });
 
-    // Generar token JWT
+    // Obtener organización del usuario
+    const userWithOrg = await prisma.user.findUnique({
+      where: { id: user.id },
+      select: {
+        id: true,
+        email: true,
+        username: true,
+        globalRole: true,
+        organizationId: true,
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            slug: true
+          }
+        }
+      }
+    });
+
+    // Generar token JWT (incluir globalRole y organizationId)
     const token = generateInternalToken({
       id: user.id,
       userId: user.id,
       email: user.email,
-      username: user.username
+      username: user.username,
+      globalRole: user.globalRole,
+      organizationId: userWithOrg.organizationId
     });
 
     // Devolver respuesta exitosa
@@ -222,6 +301,17 @@ router.post('/login-unified', [
  */
 router.get('/me', authenticateToken, async (req, res) => {
   try {
+    // El middleware authenticateToken ya carga req.user
+    // Solo necesitamos devolverlo en el formato correcto
+    if (!req.user) {
+      return res.status(404).json({ 
+        success: false,
+        error: 'Usuario no encontrado',
+        message: 'No se pudo obtener la información del usuario'
+      });
+    }
+
+    // Obtener información completa del usuario
     const user = await prisma.user.findUnique({
       where: { id: req.user.id },
       select: {
@@ -229,31 +319,51 @@ router.get('/me', authenticateToken, async (req, res) => {
         email: true,
         username: true,
         name: true,
+        globalRole: true,
+        organizationId: true,
         avatar: true,
         isActive: true,
         lastLogin: true,
         createdAt: true,
-        updatedAt: true
+        updatedAt: true,
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            slug: true
+          }
+        }
       }
     });
 
     if (!user) {
       return res.status(404).json({ 
         success: false,
-        error: 'Usuario no encontrado' 
+        error: 'Usuario no encontrado',
+        message: 'El usuario no existe en la base de datos'
       });
     }
 
+    // Obtener información de features y edición
+    const featuresInfo = getAllFeatures();
+
     res.json({
       success: true,
-      user: omitPassword(user)
+      user: {
+        ...omitPassword(user),
+        organization: user.organization,
+        // Agregar campos nuevos opcionales sin romper compatibilidad
+        edition: featuresInfo.edition,
+        features: featuresInfo.features
+      }
     });
 
   } catch (error) {
     console.error('Error en /me:', error);
     res.status(500).json({ 
       success: false,
-      error: 'Error interno del servidor' 
+      error: 'Error interno del servidor',
+      message: error.message || 'Error al obtener información del usuario'
     });
   }
 });
@@ -268,7 +378,9 @@ router.post('/refresh', authenticateToken, async (req, res) => {
       id: req.user.id,
       userId: req.user.id,
       email: req.user.email,
-      username: req.user.username
+      username: req.user.username,
+      globalRole: req.user.globalRole,
+      organizationId: req.user.organizationId
     });
 
     res.json({

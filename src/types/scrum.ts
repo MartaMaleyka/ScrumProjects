@@ -104,12 +104,26 @@ export interface Task {
   estimatedHours?: number;
   actualHours?: number;
   assigneeId?: number;
+  startDate?: string;
+  dueDate?: string;
   createdAt: string;
   updatedAt: string;
   completedAt?: string;
   userStory?: UserStory;
   sprint?: Sprint;
   assignee?: User;
+  dependencies?: TaskDependency[];
+}
+
+export interface TaskDependency {
+  id: number;
+  taskId: number;
+  dependsOnId: number;
+  type: 'FINISH_TO_START' | 'START_TO_START' | 'FINISH_TO_FINISH' | 'START_TO_FINISH';
+  lagDays?: number;
+  createdAt: string;
+  task?: Task;
+  dependsOn?: Task;
 }
 
 export interface ProjectMember {
@@ -421,6 +435,7 @@ export interface UserStoryFilters {
   status?: UserStoryStatus;
   priority?: ScrumPriority;
   sprintId?: number;
+  epicId?: number;
 }
 
 export interface TaskFilters {

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import type { Project } from '../../../types/scrum';
 import StatusBadge from '../common/StatusBadge';
 import ProgressBar from '../common/ProgressBar';
@@ -11,8 +12,10 @@ interface ProjectCardProps {
 }
 
 const ProjectCard: React.FC<ProjectCardProps> = ({ project, viewMode = 'grid', onUpdate, onSelect }) => {
+  const { t } = useTranslation();
+  
   const formatDate = (dateString?: string) => {
-    if (!dateString) return 'No definida';
+    if (!dateString) return t('common.notDefined', 'No definida');
     return new Date(dateString).toLocaleDateString('es-ES', {
       day: '2-digit',
       month: '2-digit',
@@ -87,22 +90,22 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, viewMode = 'grid', o
                 <StatusBadge status={project.status} type="project" size="sm" />
               </div>
               <p className={`${textMuted} text-sm line-clamp-2 mb-3`}>
-                {project.description || 'Sin descripción'}
+                {project.description || t('common.noDescription', 'Sin descripción')}
               </p>
               <div className="flex items-center space-x-6 text-sm text-gray-500">
-                <span className="flex items-center gap-1.5">{totalEpics} épicas</span>
-                <span className="flex items-center gap-1.5">{totalSprints} sprints</span>
-                <span className="flex items-center gap-1.5">{totalMembers} miembros</span>
+                <span className="flex items-center gap-1.5">{totalEpics} {t('projects.epics', 'épicas')}</span>
+                <span className="flex items-center gap-1.5">{totalSprints} {t('projects.sprints', 'sprints')}</span>
+                <span className="flex items-center gap-1.5">{totalMembers} {t('projects.members', 'miembros')}</span>
               </div>
             </div>
           </div>
           <div className="flex items-center space-x-6">
             <div className="text-right text-xs text-gray-500">
-              <div>Inicio: {formatDate(project.startDate)}</div>
-              <div>Fin: {formatDate(project.endDate)}</div>
+              <div>{t('projects.start', 'Inicio')}: {formatDate(project.startDate)}</div>
+              <div>{t('projects.end', 'Fin')}: {formatDate(project.endDate)}</div>
             </div>
             <div className="w-32">
-              <ProgressBar progress={progress} size="sm" color="blue" showPercentage showNumbers={false} />
+              <ProgressBar progress={progress} size="sm" color="purple" showPercentage showNumbers={false} />
             </div>
           </div>
           <div className="flex items-center gap-1 ml-6">
@@ -140,46 +143,46 @@ const ProjectCard: React.FC<ProjectCardProps> = ({ project, viewMode = 'grid', o
 
       {/* Descripción */}
       <p className={`${textMuted} text-sm line-clamp-3 mb-4 flex-1`}>
-        {project.description || 'Sin descripción'}
+        {project.description || t('common.noDescription', 'Sin descripción')}
       </p>
 
       {/* Progreso */}
       <div className="mb-4">
-        <p className={`text-xs ${textMuted} mb-1.5`}>Progreso del proyecto</p>
-        <ProgressBar progress={progress} size="md" color="blue" showPercentage showNumbers={false} />
+        <p className={`text-xs ${textMuted} mb-1.5`}>{t('projects.progress', 'Progreso del proyecto')}</p>
+        <ProgressBar progress={progress} size="md" color="purple" showPercentage showNumbers={false} />
       </div>
 
       {/* Métricas */}
       <div className="grid grid-cols-3 gap-3 mb-4">
-        <div className="bg-gray-50 rounded-lg py-2.5 text-center">
-          <div className={`text-lg font-semibold ${textPrimary}`}>{totalEpics}</div>
-          <div className={`text-xs ${textMuted}`}>Épicas</div>
+        <div className="bg-purple-50 border border-purple-100 rounded-lg py-2.5 text-center">
+          <div className={`text-lg font-semibold text-purple-700`}>{totalEpics}</div>
+          <div className={`text-xs text-purple-600`}>{t('epics.title', 'Épicas')}</div>
         </div>
-        <div className="bg-gray-50 rounded-lg py-2.5 text-center">
-          <div className={`text-lg font-semibold ${textPrimary}`}>{totalSprints}</div>
-          <div className={`text-xs ${textMuted}`}>Sprints</div>
+        <div className="bg-indigo-50 border border-indigo-100 rounded-lg py-2.5 text-center">
+          <div className={`text-lg font-semibold text-indigo-700`}>{totalSprints}</div>
+          <div className={`text-xs text-indigo-600`}>{t('sprints.title', 'Sprints')}</div>
         </div>
-        <div className="bg-gray-50 rounded-lg py-2.5 text-center">
-          <div className={`text-lg font-semibold ${textPrimary}`}>{totalMembers}</div>
-          <div className={`text-xs ${textMuted}`}>Miembros</div>
+        <div className="bg-violet-50 border border-violet-100 rounded-lg py-2.5 text-center">
+          <div className={`text-lg font-semibold text-violet-700`}>{totalMembers}</div>
+          <div className={`text-xs text-violet-600`}>{t('projects.members', 'Miembros')}</div>
         </div>
       </div>
 
       {/* Fechas */}
       <div className={`text-xs ${textMuted} space-y-1 mb-4`}>
         <div className="flex justify-between">
-          <span>Inicio:</span>
+          <span>{t('projects.start', 'Inicio')}:</span>
           <span>{formatDate(project.startDate)}</span>
         </div>
         <div className="flex justify-between">
-          <span>Fin:</span>
+          <span>{t('projects.end', 'Fin')}:</span>
           <span>{formatDate(project.endDate)}</span>
         </div>
       </div>
 
       {/* Footer: actualizado + acciones */}
       <div className="flex items-center justify-between pt-4 border-t border-gray-100 mt-auto">
-        <span className={`text-xs ${textMuted}`}>Actualizado: {formatDate(project.updatedAt)}</span>
+        <span className={`text-xs ${textMuted}`}>{t('projects.updated', 'Actualizado')}: {formatDate(project.updatedAt)}</span>
         <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
           <button
             onClick={(e) => { e.stopPropagation(); onSelect?.(project); }}

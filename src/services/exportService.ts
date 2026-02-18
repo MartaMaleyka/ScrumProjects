@@ -12,7 +12,8 @@ class ExportService {
   async exportTasksToPDF(
     tasks: Task[],
     title: string = 'Reporte de Tareas',
-    context?: { projectName?: string; sprintName?: string; userStoryTitle?: string }
+    context?: { projectName?: string; sprintName?: string; userStoryTitle?: string },
+    t?: (key: string, defaultValue?: string) => string
   ): Promise<void> {
     try {
       const doc = new jsPDF('p', 'mm', 'a4');
@@ -58,19 +59,20 @@ class ExportService {
       // Contexto
       if (context) {
         if (context.projectName) {
-          addText(`Proyecto: ${context.projectName}`, 11, true);
+          addText(`${t ? t('export.project', 'Proyecto') : 'Proyecto'}: ${context.projectName}`, 11, true);
         }
         if (context.sprintName) {
-          addText(`Sprint: ${context.sprintName}`, 11, true);
+          addText(`${t ? t('export.sprint', 'Sprint') : 'Sprint'}: ${context.sprintName}`, 11, true);
         }
         if (context.userStoryTitle) {
-          addText(`Historia: ${context.userStoryTitle}`, 11, true);
+          addText(`${t ? t('export.userStory', 'Historia') : 'Historia'}: ${context.userStoryTitle}`, 11, true);
         }
         yPosition += 3;
       }
 
       // Fecha de generación
-      addText(`Generado el: ${new Date().toLocaleDateString('es-PA')}`, 9, false, 'right', [128, 128, 128]);
+      const locale = t ? (t('common.locale', 'es-ES') as string) : 'es-ES';
+      addText(`${t ? t('export.generatedOn', 'Generado el') : 'Generado el'}: ${new Date().toLocaleDateString(locale)}`, 9, false, 'right', [128, 128, 128]);
       yPosition += 5;
 
       // Estadísticas
@@ -84,19 +86,26 @@ class ExportService {
         actualHours: tasks.reduce((sum, t) => sum + (t.actualHours || 0), 0),
       };
 
-      addText('Resumen', 12, true);
-      addText(`Total de tareas: ${stats.total}`, 10);
-      addText(`Por hacer: ${stats.todo} | En progreso: ${stats.inProgress} | En revisión: ${stats.inReview} | Completadas: ${stats.completed}`, 10);
-      addText(`Horas estimadas: ${stats.totalHours}h | Horas reales: ${stats.actualHours}h`, 10);
+      addText(t ? t('export.summary', 'Resumen') : 'Resumen', 12, true);
+      addText(`${t ? t('export.totalTasks', 'Total de tareas') : 'Total de tareas'}: ${stats.total}`, 10);
+      addText(`${t ? t('tasks.status.todo', 'Por hacer') : 'Por hacer'}: ${stats.todo} | ${t ? t('tasks.status.inProgress', 'En progreso') : 'En progreso'}: ${stats.inProgress} | ${t ? t('tasks.status.inReview', 'En revisión') : 'En revisión'}: ${stats.inReview} | ${t ? t('tasks.status.completed', 'Completadas') : 'Completadas'}: ${stats.completed}`, 10);
+      addText(`${t ? t('export.estimatedHours', 'Horas estimadas') : 'Horas estimadas'}: ${stats.totalHours}h | ${t ? t('export.actualHours', 'Horas reales') : 'Horas reales'}: ${stats.actualHours}h`, 10);
       yPosition += 5;
 
       // Tabla de tareas
       if (tasks.length > 0) {
-        addText('Detalle de Tareas', 12, true);
+        addText(t ? t('export.taskDetails', 'Detalle de Tareas') : 'Detalle de Tareas', 12, true);
         yPosition += 3;
 
         const colWidths = [15, 50, 20, 20, 25, 20];
-        const headers = ['ID', 'Título', 'Estado', 'Prioridad', 'Asignado', 'Horas'];
+        const headers = [
+          t ? t('export.id', 'ID') : 'ID',
+          t ? t('export.title', 'Título') : 'Título',
+          t ? t('export.status', 'Estado') : 'Estado',
+          t ? t('export.priority', 'Prioridad') : 'Prioridad',
+          t ? t('export.assigned', 'Asignado') : 'Asignado',
+          t ? t('export.hours', 'Horas') : 'Horas'
+        ];
         const startX = margin;
 
         // Encabezado de tabla
@@ -134,9 +143,9 @@ class ExportService {
           const rowData = [
             task.id.toString(),
             task.title.substring(0, 30),
-            this.getStatusLabel(task.status),
-            this.getPriorityLabel(task.priority),
-            task.assignee?.name || 'Sin asignar',
+            this.getStatusLabel(task.status, t),
+            this.getPriorityLabel(task.priority, t),
+            task.assignee?.name || (t ? t('export.unassigned', 'Sin asignar') : 'Sin asignar'),
             `${task.estimatedHours || 0}h${task.actualHours ? `/${task.actualHours}h` : ''}`
           ];
 
@@ -149,7 +158,7 @@ class ExportService {
           yPosition += 6;
         });
       } else {
-        addText('No hay tareas para mostrar', 10, false, 'center', [128, 128, 128]);
+        addText(t ? t('export.noTasks', 'No hay tareas para mostrar') : 'No hay tareas para mostrar', 10, false, 'center', [128, 128, 128]);
       }
 
       // Pie de página
@@ -159,7 +168,7 @@ class ExportService {
         doc.setFontSize(8);
         doc.setTextColor(128, 128, 128);
         doc.text(
-          `Página ${i} de ${totalPages}`,
+          t ? t('export.page', 'Página {{current}} de {{total}}', { current: i, total: totalPages }) : `Página ${i} de ${totalPages}`,
           pageWidth / 2,
           pageHeight - 10,
           { align: 'center' }
@@ -167,10 +176,10 @@ class ExportService {
       }
 
       // Guardar PDF
-      const fileName = `Reporte_Tareas_${new Date().toISOString().split('T')[0]}.pdf`;
+      const fileName = `${t ? t('export.tasksReport', 'Reporte_Tareas') : 'Reporte_Tareas'}_${new Date().toISOString().split('T')[0]}.pdf`;
       doc.save(fileName);
     } catch (error) {
-      throw new Error('Error al generar el PDF');
+      throw new Error(t ? t('export.pdfError', 'Error al generar el PDF') : 'Error al generar el PDF');
     }
   }
 
@@ -180,25 +189,28 @@ class ExportService {
   exportTasksToExcel(
     tasks: Task[],
     title: string = 'Reporte de Tareas',
-    context?: { projectName?: string; sprintName?: string; userStoryTitle?: string }
+    context?: { projectName?: string; sprintName?: string; userStoryTitle?: string },
+    t?: (key: string, defaultValue?: string) => string
   ): void {
     try {
+      const locale = t ? (t('common.locale', 'es-ES') as string) : 'es-ES';
+      
       // Preparar datos para Excel
       const excelData = tasks.map(task => ({
-        'ID': task.id,
-        'Título': task.title,
-        'Descripción': task.description || '',
-        'Estado': this.getStatusLabel(task.status),
-        'Prioridad': this.getPriorityLabel(task.priority),
-        'Tipo': this.getTaskTypeLabel(task.type),
-        'Asignado': task.assignee?.name || 'Sin asignar',
-        'Email Asignado': task.assignee?.email || '',
-        'Horas Estimadas': task.estimatedHours || 0,
-        'Horas Reales': task.actualHours || 0,
-        'Historia de Usuario': task.userStory?.title || '',
-        'Sprint': task.sprint?.name || '',
-        'Fecha Creación': new Date(task.createdAt).toLocaleDateString('es-PA'),
-        'Fecha Actualización': new Date(task.updatedAt).toLocaleDateString('es-PA'),
+        [t ? t('export.id', 'ID') : 'ID']: task.id,
+        [t ? t('export.title', 'Título') : 'Título']: task.title,
+        [t ? t('export.description', 'Descripción') : 'Descripción']: task.description || '',
+        [t ? t('export.status', 'Estado') : 'Estado']: this.getStatusLabel(task.status, t),
+        [t ? t('export.priority', 'Prioridad') : 'Prioridad']: this.getPriorityLabel(task.priority, t),
+        [t ? t('export.type', 'Tipo') : 'Tipo']: this.getTaskTypeLabel(task.type, t),
+        [t ? t('export.assigned', 'Asignado') : 'Asignado']: task.assignee?.name || (t ? t('export.unassigned', 'Sin asignar') : 'Sin asignar'),
+        [t ? t('export.assignedEmail', 'Email Asignado') : 'Email Asignado']: task.assignee?.email || '',
+        [t ? t('export.estimatedHours', 'Horas Estimadas') : 'Horas Estimadas']: task.estimatedHours || 0,
+        [t ? t('export.actualHours', 'Horas Reales') : 'Horas Reales']: task.actualHours || 0,
+        [t ? t('export.userStory', 'Historia de Usuario') : 'Historia de Usuario']: task.userStory?.title || '',
+        [t ? t('export.sprint', 'Sprint') : 'Sprint']: task.sprint?.name || '',
+        [t ? t('export.createdDate', 'Fecha Creación') : 'Fecha Creación']: new Date(task.createdAt).toLocaleDateString(locale),
+        [t ? t('export.updatedDate', 'Fecha Actualización') : 'Fecha Actualización']: new Date(task.updatedAt).toLocaleDateString(locale),
       }));
 
       // Crear workbook
@@ -206,40 +218,53 @@ class ExportService {
 
       // Hoja de resumen
       const summaryData = [
-        ['REPORTE DE TAREAS'],
+        [t ? t('export.tasksReport', 'REPORTE DE TAREAS') : 'REPORTE DE TAREAS'],
         [''],
-        ['Generado el:', new Date().toLocaleDateString('es-PA')],
+        [t ? t('export.generatedOn', 'Generado el') : 'Generado el:', new Date().toLocaleDateString(locale)],
         [''],
-        ...(context?.projectName ? [['Proyecto:', context.projectName]] : []),
-        ...(context?.sprintName ? [['Sprint:', context.sprintName]] : []),
-        ...(context?.userStoryTitle ? [['Historia:', context.userStoryTitle]] : []),
+        ...(context?.projectName ? [[t ? t('export.project', 'Proyecto') : 'Proyecto:', context.projectName]] : []),
+        ...(context?.sprintName ? [[t ? t('export.sprint', 'Sprint') : 'Sprint:', context.sprintName]] : []),
+        ...(context?.userStoryTitle ? [[t ? t('export.userStory', 'Historia') : 'Historia:', context.userStoryTitle]] : []),
         [''],
-        ['RESUMEN'],
-        ['Total de tareas:', tasks.length],
-        ['Por hacer:', tasks.filter(t => t.status === 'TODO').length],
-        ['En progreso:', tasks.filter(t => t.status === 'IN_PROGRESS').length],
-        ['En revisión:', tasks.filter(t => t.status === 'IN_REVIEW').length],
-        ['Completadas:', tasks.filter(t => t.status === 'COMPLETED').length],
-        ['Horas estimadas:', tasks.reduce((sum, t) => sum + (t.estimatedHours || 0), 0)],
-        ['Horas reales:', tasks.reduce((sum, t) => sum + (t.actualHours || 0), 0)],
+        [t ? t('export.summary', 'RESUMEN') : 'RESUMEN'],
+        [t ? t('export.totalTasks', 'Total de tareas') : 'Total de tareas:', tasks.length],
+        [t ? t('tasks.status.todo', 'Por hacer') : 'Por hacer:', tasks.filter(t => t.status === 'TODO').length],
+        [t ? t('tasks.status.inProgress', 'En progreso') : 'En progreso:', tasks.filter(t => t.status === 'IN_PROGRESS').length],
+        [t ? t('tasks.status.inReview', 'En revisión') : 'En revisión:', tasks.filter(t => t.status === 'IN_REVIEW').length],
+        [t ? t('tasks.status.completed', 'Completadas') : 'Completadas:', tasks.filter(t => t.status === 'COMPLETED').length],
+        [t ? t('export.estimatedHours', 'Horas estimadas') : 'Horas estimadas:', tasks.reduce((sum, t) => sum + (t.estimatedHours || 0), 0)],
+        [t ? t('export.actualHours', 'Horas reales') : 'Horas reales:', tasks.reduce((sum, t) => sum + (t.actualHours || 0), 0)],
       ];
       const summaryWs = XLSX.utils.aoa_to_sheet(summaryData);
-      XLSX.utils.book_append_sheet(wb, summaryWs, 'Resumen');
+      XLSX.utils.book_append_sheet(wb, summaryWs, t ? t('export.summary', 'Resumen') : 'Resumen');
 
       // Hoja de tareas
       const tasksWs = XLSX.utils.json_to_sheet(excelData);
-      XLSX.utils.book_append_sheet(wb, tasksWs, 'Tareas');
+      XLSX.utils.book_append_sheet(wb, tasksWs, t ? t('tasks.title', 'Tareas') : 'Tareas');
 
       // Guardar archivo
-      const fileName = `Reporte_Tareas_${new Date().toISOString().split('T')[0]}.xlsx`;
+      const fileName = `${t ? t('export.tasksReport', 'Reporte_Tareas') : 'Reporte_Tareas'}_${new Date().toISOString().split('T')[0]}.xlsx`;
       XLSX.writeFile(wb, fileName);
     } catch (error) {
-      throw new Error('Error al generar el Excel');
+      throw new Error(t ? t('export.excelError', 'Error al generar el Excel') : 'Error al generar el Excel');
     }
   }
 
   // Helpers
-  private getStatusLabel(status: string): string {
+  private getStatusLabel(status: string, t?: (key: string, defaultValue?: string) => string): string {
+    if (t) {
+      const statusMap: Record<string, string> = {
+        'TODO': t('tasks.status.todo', 'Por Hacer'),
+        'IN_PROGRESS': t('tasks.status.inProgress', 'En Progreso'),
+        'IN_REVIEW': t('tasks.status.inReview', 'En Revisión'),
+        'COMPLETED': t('tasks.status.completed', 'Completado'),
+        'CANCELLED': t('common.statusCancelled', 'Cancelado'),
+        'PLANNING': t('common.statusPlanning', 'Planificación'),
+        'ACTIVE': t('common.statusActive', 'Activo'),
+        'ON_HOLD': t('common.statusOnHold', 'En Espera'),
+      };
+      return statusMap[status] || status;
+    }
     const labels: Record<string, string> = {
       'TODO': 'Por Hacer',
       'IN_PROGRESS': 'En Progreso',
@@ -253,7 +278,16 @@ class ExportService {
     return labels[status] || status;
   }
 
-  private getPriorityLabel(priority: string): string {
+  private getPriorityLabel(priority: string, t?: (key: string, defaultValue?: string) => string): string {
+    if (t) {
+      const priorityMap: Record<string, string> = {
+        'LOW': t('common.priority.low', 'Baja'),
+        'MEDIUM': t('common.priority.medium', 'Media'),
+        'HIGH': t('common.priority.high', 'Alta'),
+        'CRITICAL': t('common.priority.critical', 'Crítica'),
+      };
+      return priorityMap[priority] || priority;
+    }
     const labels: Record<string, string> = {
       'LOW': 'Baja',
       'MEDIUM': 'Media',
@@ -263,7 +297,19 @@ class ExportService {
     return labels[priority] || priority;
   }
 
-  private getTaskTypeLabel(type: string): string {
+  private getTaskTypeLabel(type: string, t?: (key: string, defaultValue?: string) => string): string {
+    if (t) {
+      const typeMap: Record<string, string> = {
+        'DEVELOPMENT': t('tasks.types.development', 'Desarrollo'),
+        'TESTING': t('tasks.types.testing', 'Testing'),
+        'DESIGN': t('tasks.types.design', 'Diseño'),
+        'DOCUMENTATION': t('tasks.types.documentation', 'Documentación'),
+        'BUG_FIX': t('tasks.types.bugFix', 'Corrección'),
+        'RESEARCH': t('tasks.types.research', 'Investigación'),
+        'REFACTORING': t('tasks.types.refactoring', 'Refactorización'),
+      };
+      return typeMap[type] || type;
+    }
     const labels: Record<string, string> = {
       'DEVELOPMENT': 'Desarrollo',
       'TESTING': 'Testing',

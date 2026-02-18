@@ -8,12 +8,37 @@ const getApiUrl = (): string => {
   // Si estamos en el navegador, usar el proxy de Astro
   if (isBrowser()) {
     // En desarrollo, usar el proxy de Astro (relativo)
-    // El proxy redirige /api a http://localhost:3001/api
+    // El proxy redirige /api a http://localhost:3001/api o http://api:3001/api en Docker
     return '/api';
   }
   
-  // Por defecto para SSR o entornos sin navegador
-  return 'http://localhost:3001/api';
+  // Para SSR o entornos sin navegador (incluyendo Docker)
+  // En Docker, será 'http://api:3001', en desarrollo local será 'http://localhost:3001'
+  let apiUrl = 'http://localhost:3001';
+  
+  // Intentar obtener API_URL de diferentes formas (compatibilidad)
+  // En Node.js/SSR, process.env está disponible
+  try {
+    // @ts-ignore - process solo existe en Node.js/SSR
+    if (typeof process !== 'undefined' && process.env?.API_URL) {
+      // @ts-ignore
+      apiUrl = process.env.API_URL;
+    }
+  } catch (e) {
+    // process no está disponible (cliente)
+  }
+  
+  // También verificar import.meta.env (Astro/Vite) - disponible en ambos contextos
+  try {
+    const metaEnv = (import.meta as any)?.env;
+    if (metaEnv?.API_URL) {
+      apiUrl = metaEnv.API_URL;
+    }
+  } catch (e) {
+    // import.meta no está disponible
+  }
+  
+  return `${apiUrl}/api`;
 };
 
 // Configuración de timeout para las peticiones

@@ -78,8 +78,17 @@ const authenticateToken = async (req, res, next) => {
         email: true,
         username: true,
         name: true,
+        globalRole: true,
+        organizationId: true,
         isActive: true,
-        avatar: true
+        avatar: true,
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            slug: true
+          }
+        }
       }
     });
 
@@ -100,8 +109,18 @@ const authenticateToken = async (req, res, next) => {
     }
 
     // Agregar usuario y información de autenticación a la request
-    req.user = user;
+    req.user = {
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      name: user.name,
+      globalRole: user.globalRole,
+      organizationId: user.organizationId,
+      isActive: user.isActive,
+      avatar: user.avatar
+    };
     req.userId = user.id;
+    req.organizationId = user.organizationId;
     req.authType = tokenType || 'internal';
 
     // Actualizar último login

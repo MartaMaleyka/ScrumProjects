@@ -2,6 +2,18 @@ const express = require('express');
 const { body, param, query, validationResult } = require('express-validator');
 const ScrumController = require('../controllers/scrumController');
 const { authenticateToken } = require('../middleware/auth');
+const { 
+  requireGlobalRole, 
+  requireProjectAccess, 
+  requireProjectRole,
+  requireTaskEditAccess,
+  requireProjectMemberManagement
+} = require('../middleware/authz');
+const {
+  requireSameOrganizationForProject,
+  requireSameOrganizationForUser,
+  requireNotSuperAdminForProjectMutations
+} = require('../middleware/tenant');
 const { validateRequest } = require('../middleware/validationSchemas');
 const ScrumValidation = require('../middleware/scrumValidation');
 const ScrumMiddleware = require('../middleware/scrumMiddleware');
@@ -325,6 +337,19 @@ const taskIdValidation = [
     .withMessage('ID de tarea inválido')
 ];
 
+// ===== RUTAS DE USUARIOS =====
+
+/**
+ * @route GET /api/scrum/users
+ * @desc Obtener todos los usuarios activos
+ * @access Private
+ */
+router.get('/users', [
+  query('limit').optional().isInt({ min: 1, max: 1000 }).withMessage('Límite debe ser entre 1 y 1000'),
+  query('isActive').optional().isBoolean().withMessage('isActive debe ser un booleano'),
+  query('search').optional().isLength({ max: 100 }).withMessage('Búsqueda no puede exceder 100 caracteres')
+], validateRequest, ScrumController.getUsers);
+
 // ===== RUTAS DE PROYECTOS =====
 
 /**
@@ -351,30 +376,56 @@ router.get('/projects/all', validateRequest, ScrumController.getAllProjects);
 /**
  * @route GET /api/scrum/projects/:id
  * @desc Obtener un proyecto por ID con todos sus detalles
- * @access Private
+ * @access Private - ADMIN/MANAGER o miembro del proyecto
  */
-router.get('/projects/:id', projectIdValidation, validateRequest, ScrumController.getProjectById);
+router.get('/projects/:id', 
+  projectIdValidation, 
+  validateRequest,
+  requireSameOrganizationForProject('id'),
+  requireProjectAccess('id'),
+  ScrumController.getProjectById
+);
 
 /**
  * @route POST /api/scrum/projects
  * @desc Crear un nuevo proyecto
- * @access Private
+ * @access Private - ADMIN, MANAGER (SUPER_ADMIN no puede crear)
  */
-router.post('/projects', projectValidation, validateRequest, ScrumController.createProject);
+router.post('/projects', 
+  requireGlobalRole('ADMIN', 'MANAGER'),
+  requireNotSuperAdminForProjectMutations(),
+  projectValidation, 
+  validateRequest, 
+  ScrumController.createProject
+);
 
 /**
  * @route PUT /api/scrum/projects/:id
  * @desc Actualizar un proyecto
- * @access Private
+ * @access Private - ADMIN/MANAGER o PRODUCT_OWNER/SCRUM_MASTER del proyecto
  */
-router.put('/projects/:id', [...projectIdValidation, ...projectUpdateValidation], validateRequest, ScrumController.updateProject);
+router.put('/projects/:id', 
+  [...projectIdValidation, ...projectUpdateValidation], 
+  validateRequest,
+  requireSameOrganizationForProject('id'),
+  requireNotSuperAdminForProjectMutations(),
+  requireProjectAccess('id'),
+  requireProjectRole('PRODUCT_OWNER', 'SCRUM_MASTER'),
+  ScrumController.updateProject
+);
 
 /**
  * @route DELETE /api/scrum/projects/:id
  * @desc Eliminar un proyecto
- * @access Private
+ * @access Private - ADMIN, MANAGER (SUPER_ADMIN no puede eliminar)
  */
-router.delete('/projects/:id', projectIdValidation, validateRequest, ScrumController.deleteProject);
+router.delete('/projects/:id', 
+  projectIdValidation, 
+  validateRequest,
+  requireSameOrganizationForProject('id'),
+  requireNotSuperAdminForProjectMutations(),
+  ScrumController.deleteProject
+);
 
 /**
  * @route GET /api/scrum/projects/:projectId/metrics
@@ -385,7 +436,7 @@ router.get('/projects/:projectId/metrics', [
   param('projectId').isInt({ min: 1 }).withMessage('ID de proyecto inválido'),
   query('startDate').optional().isISO8601().withMessage('Fecha de inicio inválida'),
   query('endDate').optional().isISO8601().withMessage('Fecha de fin inválida')
-], validateRequest, ScrumController.getProjectMetrics);
+], validateRequest, requireSameOrganizationForProject('projectId'), ScrumController.getProjectMetrics);
 
 /**
  * @route GET /api/scrum/projects/:projectId/tasks
@@ -397,51 +448,51 @@ router.get('/projects/:projectId/tasks', [
   query('status').optional().isIn(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'TESTING', 'COMPLETED', 'CANCELLED']).withMessage('Estado inválido'),
   query('priority').optional().isIn(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']).withMessage('Prioridad inválida'),
   query('type').optional().isIn(['DEVELOPMENT', 'TESTING', 'DESIGN', 'DOCUMENTATION', 'BUG_FIX', 'RESEARCH', 'REFACTORING']).withMessage('Tipo inválido')
-], validateRequest, ScrumController.getProjectTasks);
+], validateRequest, requireSameOrganizationForProject('projectId'), ScrumController.getProjectTasks);
 
 // ===== RUTAS DE MIEMBROS DE PROYECTO =====
 
 /**
  * @route GET /api/scrum/projects/:projectId/members
  * @desc Obtener miembros de un proyecto
- * @access Private
+ * @access Private - ADMIN/MANAGER o miembro del proyecto
  */
 router.get('/projects/:projectId/members', [
   param('projectId').isInt({ min: 1 }).withMessage('ID de proyecto inválido')
-], validateRequest, ScrumController.getProjectMembers);
+], validateRequest, requireSameOrganizationForProject('projectId'), requireProjectAccess('projectId'), ScrumController.getProjectMembers);
 
 /**
  * @route POST /api/scrum/projects/:projectId/members
  * @desc Agregar un miembro a un proyecto
- * @access Private
+ * @access Private - ADMIN/MANAGER o PRODUCT_OWNER/SCRUM_MASTER del proyecto
  */
 router.post('/projects/:projectId/members', [
   param('projectId').isInt({ min: 1 }).withMessage('ID de proyecto inválido'),
   body('userId').isInt({ min: 1 }).withMessage('ID de usuario inválido'),
   body('role').optional().isIn(['PRODUCT_OWNER', 'SCRUM_MASTER', 'DEVELOPER', 'TESTER', 'DESIGNER', 'STAKEHOLDER', 'INFRAESTRUCTURA', 'REDES', 'SEGURIDAD']).withMessage('Rol inválido'),
   body('teamId').optional().isInt({ min: 1 }).withMessage('ID de equipo inválido')
-], validateRequest, ScrumController.addProjectMember);
+], validateRequest, requireSameOrganizationForProject('projectId'), requireSameOrganizationForUser('userId'), requireProjectMemberManagement('projectId'), ScrumController.addProjectMember);
 
 /**
  * @route PUT /api/scrum/projects/:projectId/members/:memberId
  * @desc Actualizar rol de un miembro del proyecto
- * @access Private
+ * @access Private - ADMIN/MANAGER o PRODUCT_OWNER/SCRUM_MASTER del proyecto
  */
 router.put('/projects/:projectId/members/:memberId', [
   param('projectId').isInt({ min: 1 }).withMessage('ID de proyecto inválido'),
   param('memberId').isInt({ min: 1 }).withMessage('ID de miembro inválido'),
   body('role').isIn(['PRODUCT_OWNER', 'SCRUM_MASTER', 'DEVELOPER', 'TESTER', 'DESIGNER', 'STAKEHOLDER', 'INFRAESTRUCTURA', 'REDES', 'SEGURIDAD']).withMessage('Rol inválido')
-], validateRequest, ScrumController.updateProjectMember);
+], validateRequest, requireProjectMemberManagement('projectId'), ScrumController.updateProjectMember);
 
 /**
  * @route DELETE /api/scrum/projects/:projectId/members/:memberId
  * @desc Eliminar un miembro del proyecto
- * @access Private
+ * @access Private - ADMIN/MANAGER o PRODUCT_OWNER/SCRUM_MASTER del proyecto
  */
 router.delete('/projects/:projectId/members/:memberId', [
   param('projectId').isInt({ min: 1 }).withMessage('ID de proyecto inválido'),
   param('memberId').isInt({ min: 1 }).withMessage('ID de miembro inválido')
-], validateRequest, ScrumController.removeProjectMember);
+], validateRequest, requireProjectMemberManagement('projectId'), ScrumController.removeProjectMember);
 
 // ===== RUTAS DE SPRINTS =====
 
@@ -464,7 +515,7 @@ router.get('/sprints', [
  */
 router.get('/sprints/:id', [
   param('id').isInt({ min: 1 }).withMessage('ID de sprint inválido')
-], validateRequest, ScrumController.getSprintById);
+], validateRequest, requireSameOrganizationForProject('sprintId'), ScrumController.getSprintById);
 
 /**
  * @route GET /api/scrum/sprints/:id/tasks
@@ -479,6 +530,15 @@ router.get('/sprints/:id/tasks', [
 ], validateRequest, ScrumController.getSprintTasks);
 
 /**
+ * @route GET /api/scrum/sprints/:id/burndown
+ * @desc Obtener datos del burndown chart de un sprint
+ * @access Private
+ */
+router.get('/sprints/:id/burndown', [
+  param('id').isInt({ min: 1 }).withMessage('ID de sprint inválido')
+], validateRequest, ScrumController.getSprintBurndown);
+
+/**
  * @route GET /api/scrum/projects/:projectId/sprints
  * @desc Obtener sprints de un proyecto
  * @access Private
@@ -487,16 +547,19 @@ router.get('/projects/:projectId/sprints', [
   param('projectId').isInt({ min: 1 }).withMessage('ID de proyecto inválido'),
   query('status').optional().isIn(['PLANNING', 'ACTIVE', 'COMPLETED', 'CANCELLED']).withMessage('Estado inválido'),
   query('includeCompleted').optional().isBoolean().withMessage('includeCompleted debe ser booleano')
-], validateRequest, ScrumController.getProjectSprints);
+], validateRequest, requireSameOrganizationForProject('projectId'), ScrumController.getProjectSprints);
 
 /**
  * @route POST /api/scrum/sprints
  * @desc Crear un nuevo sprint
- * @access Private
+ * @access Private - ADMIN o PRODUCT_OWNER/SCRUM_MASTER del proyecto
  */
 router.post('/sprints', 
   sprintValidation, 
-  validateRequest, 
+  validateRequest,
+  requireSameOrganizationForProject('projectId'), // projectId viene en body
+  requireProjectAccess('projectId'),
+  requireProjectRole('PRODUCT_OWNER', 'SCRUM_MASTER'),
   ScrumController.createSprint
 );
 
@@ -505,20 +568,20 @@ router.post('/sprints',
  * @desc Actualizar un sprint
  * @access Private
  */
-router.put('/sprints/:id', [...sprintIdValidation, ...sprintValidation], validateRequest, ScrumController.updateSprint);
+router.put('/sprints/:id', [...sprintIdValidation, ...sprintValidation], validateRequest, requireSameOrganizationForProject('sprintId'), ScrumController.updateSprint);
 
 // ===== RUTAS DE ÉPICAS =====
 
 /**
  * @route GET /api/scrum/projects/:projectId/epics
  * @desc Obtener épicas de un proyecto
- * @access Private
+ * @access Private - ADMIN/MANAGER o miembro del proyecto
  */
 router.get('/projects/:projectId/epics', [
   param('projectId').isInt({ min: 1 }).withMessage('ID de proyecto inválido'),
-  query('status').optional().isIn(['PLANNING', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']).withMessage('Estado inválido'),
+  query('status').optional().isIn(['DRAFT', 'READY', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']).withMessage('Estado inválido'),
   query('priority').optional().isIn(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']).withMessage('Prioridad inválida')
-], validateRequest, ScrumController.getProjectEpics);
+], validateRequest, requireSameOrganizationForProject('projectId'), requireProjectAccess('projectId'), ScrumController.getProjectEpics);
 
 /**
  * @route GET /api/scrum/epics/:id
@@ -527,28 +590,35 @@ router.get('/projects/:projectId/epics', [
  */
 router.get('/epics/:id', [
   param('id').isInt({ min: 1 }).withMessage('ID de épica inválido')
-], validateRequest, ScrumController.getEpicById);
+], validateRequest, requireSameOrganizationForProject('epicId'), ScrumController.getEpicById);
 
 /**
  * @route POST /api/scrum/epics
  * @desc Crear una nueva épica
- * @access Private
+ * @access Private - ADMIN o PRODUCT_OWNER/SCRUM_MASTER del proyecto
  */
-router.post('/epics', epicValidation, validateRequest, ScrumController.createEpic);
+router.post('/epics', 
+  epicValidation, 
+  validateRequest,
+  requireSameOrganizationForProject('projectId'), // projectId viene en body
+  requireProjectAccess('projectId'),
+  requireProjectRole('PRODUCT_OWNER', 'SCRUM_MASTER'),
+  ScrumController.createEpic
+);
 
 /**
  * @route PUT /api/scrum/epics/:id
  * @desc Actualizar una épica
  * @access Private
  */
-router.put('/epics/:id', [...epicIdValidation, ...epicValidation], validateRequest, ScrumController.updateEpic);
+router.put('/epics/:id', [...epicIdValidation, ...epicValidation], validateRequest, requireSameOrganizationForProject('epicId'), ScrumController.updateEpic);
 
 /**
  * @route DELETE /api/scrum/epics/:id
  * @desc Eliminar una épica
  * @access Private
  */
-router.delete('/epics/:id', epicIdValidation, validateRequest, ScrumController.deleteEpic);
+router.delete('/epics/:id', epicIdValidation, validateRequest, requireSameOrganizationForProject('epicId'), ScrumController.deleteEpic);
 
 // ===== RUTAS DE HISTORIAS DE USUARIO =====
 
@@ -561,7 +631,7 @@ router.get('/epics/:epicId/user-stories', [
   param('epicId').isInt({ min: 1 }).withMessage('ID de épica inválido'),
   query('status').optional().isIn(['BACKLOG', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELLED']).withMessage('Estado inválido'),
   query('priority').optional().isIn(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']).withMessage('Prioridad inválida')
-], validateRequest, ScrumController.getEpicUserStories);
+], validateRequest, requireSameOrganizationForProject('epicId'), ScrumController.getEpicUserStories);
 
 /**
  * @route GET /api/scrum/user-stories
@@ -582,18 +652,22 @@ router.get('/user-stories', [
  */
 router.get('/user-stories/:id', 
   userStoryIdValidation, 
-  validateRequest, 
+  validateRequest,
+  requireSameOrganizationForProject('userStoryId'),
   ScrumController.getUserStoryById
 );
 
 /**
  * @route POST /api/scrum/user-stories
  * @desc Crear una nueva historia de usuario
- * @access Private
+ * @access Private - ADMIN o PRODUCT_OWNER/SCRUM_MASTER del proyecto
  */
 router.post('/user-stories', 
   userStoryValidation, 
-  validateRequest, 
+  validateRequest,
+  requireSameOrganizationForProject('epicId'), // projectId viene del epicId en body
+  requireProjectAccess('projectId'),
+  requireProjectRole('PRODUCT_OWNER', 'SCRUM_MASTER'),
   ScrumController.createUserStory
 );
 
@@ -606,6 +680,7 @@ router.put('/user-stories/:id',
   userStoryIdValidation,
   userStoryValidation,
   validateRequest,
+  requireSameOrganizationForProject('userStoryId'),
   ScrumController.updateUserStory
 );
 
@@ -617,10 +692,24 @@ router.put('/user-stories/:id',
 router.delete('/user-stories/:id',
   userStoryIdValidation,
   validateRequest,
+  requireSameOrganizationForProject('userStoryId'),
   ScrumController.deleteUserStory
 );
 
 // ===== RUTAS DE TAREAS =====
+
+/**
+ * @route GET /api/scrum/projects/:projectId/user-stories
+ * @desc Obtener todas las historias de usuario de un proyecto
+ * @access Private
+ */
+router.get('/projects/:projectId/user-stories', [
+  param('projectId').isInt({ min: 1 }).withMessage('ID de proyecto inválido'),
+  query('status').optional().isIn(['BACKLOG', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELLED']).withMessage('Estado inválido'),
+  query('priority').optional().isIn(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']).withMessage('Prioridad inválida'),
+  query('epicId').optional().isInt({ min: 1 }).withMessage('ID de épica inválido'),
+  query('sprintId').optional().isInt({ min: 1 }).withMessage('ID de sprint inválido')
+], validateRequest, requireSameOrganizationForProject('projectId'), requireProjectAccess('projectId'), ScrumController.getProjectUserStories);
 
 /**
  * @route GET /api/scrum/user-stories/:userStoryId/tasks
@@ -632,7 +721,7 @@ router.get('/user-stories/:userStoryId/tasks', [
   query('status').optional().isIn(['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'TESTING', 'COMPLETED', 'CANCELLED']).withMessage('Estado inválido'),
   query('priority').optional().isIn(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL']).withMessage('Prioridad inválida'),
   query('type').optional().isIn(['DEVELOPMENT', 'TESTING', 'DESIGN', 'DOCUMENTATION', 'BUG_FIX', 'RESEARCH', 'REFACTORING']).withMessage('Tipo inválido')
-], validateRequest, ScrumController.getUserStoryTasks);
+], validateRequest, requireSameOrganizationForProject('userStoryId'), ScrumController.getUserStoryTasks);
 
 /**
  * @route GET /api/scrum/tasks/:id
@@ -641,27 +730,36 @@ router.get('/user-stories/:userStoryId/tasks', [
  */
 router.get('/tasks/:id', 
   taskIdValidation, 
-  validateRequest, 
+  validateRequest,
+  requireSameOrganizationForProject('taskId'),
   ScrumController.getTaskById
 );
 
 /**
  * @route POST /api/scrum/tasks
  * @desc Crear una nueva tarea
- * @access Private
+ * @access Private - ADMIN o PRODUCT_OWNER/SCRUM_MASTER/DEVELOPER/TESTER/DESIGNER/INFRA/REDES/SEGURIDAD del proyecto
  */
 router.post('/tasks', 
   taskCreateValidation, 
-  validateRequest, 
+  validateRequest,
+  requireProjectAccess('projectId'), // projectId viene del userStoryId en body
+  requireProjectRole('PRODUCT_OWNER', 'SCRUM_MASTER', 'DEVELOPER', 'TESTER', 'DESIGNER', 'INFRAESTRUCTURA', 'REDES', 'SEGURIDAD'),
   ScrumController.createTask
 );
 
 /**
  * @route PUT /api/scrum/tasks/:id
  * @desc Actualizar una tarea
- * @access Private
+ * @access Private - ADMIN/PO/SM o asignado de la tarea
  */
-router.put('/tasks/:id', [...taskIdValidation, ...taskUpdateValidation], validateRequest, ScrumController.updateTask);
+router.put('/tasks/:id', 
+  [...taskIdValidation, ...taskUpdateValidation], 
+  validateRequest,
+  requireSameOrganizationForProject('taskId'),
+  requireTaskEditAccess('id'),
+  ScrumController.updateTask
+);
 
 /**
  * @route DELETE /api/scrum/tasks/:id
@@ -670,7 +768,8 @@ router.put('/tasks/:id', [...taskIdValidation, ...taskUpdateValidation], validat
  */
 router.delete('/tasks/:id', 
   taskIdValidation, 
-  validateRequest, 
+  validateRequest,
+  requireSameOrganizationForProject('taskId'),
   ScrumController.deleteTask
 );
 
@@ -713,7 +812,7 @@ router.get('/dashboard', [
 router.get('/projects/:projectId/team-metrics', [
   param('projectId').isInt({ min: 1 }).withMessage('ID de proyecto inválido'),
   query('period').optional().isIn(['week', 'month', 'quarter', 'year']).withMessage('Período inválido')
-], validateRequest, ScrumController.getTeamMetrics);
+], validateRequest, requireSameOrganizationForProject('projectId'), ScrumController.getTeamMetrics);
 
 /**
  * @route GET /api/scrum/projects/:projectId/velocity
@@ -723,7 +822,7 @@ router.get('/projects/:projectId/team-metrics', [
 router.get('/projects/:projectId/velocity', [
   param('projectId').isInt({ min: 1 }).withMessage('ID de proyecto inválido'),
   query('limit').optional().isInt({ min: 1, max: 50 }).withMessage('Límite inválido')
-], validateRequest, ScrumController.getTeamVelocity);
+], validateRequest, requireSameOrganizationForProject('projectId'), ScrumController.getTeamVelocity);
 
 // ===== RUTAS PARA PANEL DE CONTROL GENERAL (RF025-RF028) =====
 

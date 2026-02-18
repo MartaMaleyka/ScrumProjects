@@ -97,7 +97,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (token) {
           try {
             console.log('🔍 [useAuth] Intentando obtener usuario actual...');
-            const currentUser = await authService.getCurrentUser();
+            // Agregar timeout adicional para la petición (2 segundos)
+            const userPromise = authService.getCurrentUser();
+            const timeoutPromise = new Promise<User>((_, reject) => 
+              setTimeout(() => reject(new Error('Timeout en getCurrentUser')), 2000)
+            );
+            
+            const currentUser = await Promise.race([userPromise, timeoutPromise]);
             console.log('✅ [useAuth] Usuario obtenido:', currentUser);
             if (isMounted) {
               setUser(currentUser);
@@ -113,7 +119,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           } catch (error: any) {
             console.error('❌ [useAuth] Error al obtener usuario:', error);
             if (isMounted) {
-              authService.clearToken();
+              // Si es un error de timeout o conexión, limpiar token
+              if (error.message?.includes('Timeout') || error.message?.includes('Failed to fetch') || error.message?.includes('NetworkError')) {
+                console.warn('⚠️ [useAuth] Error de conexión, limpiando token');
+                authService.clearToken();
+              }
               setUser(null);
               setIsLoading(false);
               setIsInitialized(true);
@@ -152,15 +162,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
-    // Timeout de seguridad: si después de 10 segundos no se ha inicializado, forzar finalización
+    // Timeout de seguridad: si después de 3 segundos no se ha inicializado, forzar finalización
     timeoutId = setTimeout(() => {
-      if (isMounted) {
-        console.warn('⚠️ [useAuth] Timeout en inicialización, forzando finalización');
-        // Forzar finalización si aún no se ha inicializado
-        setIsLoading(false);
-        setIsInitialized(true);
+      console.warn('⚠️ [useAuth] Timeout en inicialización (3s), forzando finalización');
+      // Forzar finalización siempre, sin verificar isMounted para evitar problemas
+      setIsLoading((prev) => {
+        if (prev) {
+          console.warn('⚠️ [useAuth] Forzando isLoading a false por timeout');
+        }
+        return false;
+      });
+      setIsInitialized((prev) => {
+        if (!prev) {
+          console.warn('⚠️ [useAuth] Forzando isInitialized a true por timeout');
+        }
+        return true;
+      });
+      // Limpiar token si hay problemas de conexión
+      try {
+        const token = authService.getToken();
+        if (token) {
+          console.warn('⚠️ [useAuth] Limpiando token por timeout');
+          authService.clearToken();
+        }
+      } catch (e) {
+        console.error('Error al limpiar token:', e);
       }
-    }, 10000);
+    }, 3000);
 
     initializeAuth();
 
@@ -250,6 +278,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   // Calcular el valor del contexto - usar useMemo pero asegurar que se actualice
+  // El loading es true solo si isLoading es true Y aún no está inicializado
+  // Una vez inicializado, isLoading debe ser false para que loading sea false
   const loading = isLoading || !isInitialized;
   const contextValue = useMemo(() => {
     const value = {

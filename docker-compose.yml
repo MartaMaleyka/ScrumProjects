@@ -1,0 +1,82 @@
+services:
+  db:
+    image: mysql:8.4
+    container_name: sprintiva-db
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpassword}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-gestor_proyectos}
+      MYSQL_USER: ${MYSQL_USER:-gestor_user}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-gestor_password}
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u root -p$${MYSQL_ROOT_PASSWORD} --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 25s
+    networks:
+      - sprintiva-net
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile.dev
+    container_name: sprintiva-api
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      DATABASE_URL: mysql://root:${MYSQL_ROOT_PASSWORD:-rootpassword}@db:3306/${MYSQL_DATABASE:-gestor_proyectos}
+      JWT_SECRET: ${JWT_SECRET:-dev_jwt_secret_change_in_production}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:4321}
+
+      # GitHub OAuth (opcional)
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      GITHUB_CALLBACK_URL: ${GITHUB_CALLBACK_URL:-http://localhost:4321/api/integrations/github/oauth/callback}
+      GITHUB_TOKEN_ENC_KEY: ${GITHUB_TOKEN_ENC_KEY:-}
+    volumes:
+      - ./api:/app
+      - /app/node_modules
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - sprintiva-net
+    restart: unless-stopped
+    # ✅ NO seed automático aquí para que no se duplique data en cada restart
+    command: sh -c "npm run db:generate && npx prisma migrate deploy && npx prisma db seed && npm run dev"
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: sprintiva-web
+    environment:
+      NODE_ENV: development
+      PORT: 4321
+      HOST: 0.0.0.0
+      # ✅ Para el proxy de Vite necesita URL completa (http://api:3001)
+      # El código en src/config/api.ts maneja que en el navegador use /api (relativo)
+      API_URL: http://api:3001
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/api/node_modules
+    ports:
+      - "4321:4321"
+    depends_on:
+      - api
+    networks:
+      - sprintiva-net
+    restart: unless-stopped
+    command: npm run dev -- --host 0.0.0.0 --port 4321
+
+networks:
+  sprintiva-net:
+    driver: bridge
+
+volumes:
+  db_data:
+    driver: local

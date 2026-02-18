@@ -64,6 +64,101 @@ const ScrumDashboard: React.FC = () => {
   // Cargar proyectos al inicializar
   useEffect(() => {
     loadProjects();
+    
+    // Leer la vista inicial de la URL
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const viewParam = urlParams.get('view');
+      
+      if (viewParam) {
+        const viewMap: Record<string, ScrumView> = {
+          'projects': 'projects',
+          'epics': 'epics',
+          'stories': 'stories',
+          'sprints': 'sprints',
+          'tasks': 'tasks',
+          'reports': 'dashboard'
+        };
+        
+        const targetView = viewMap[viewParam];
+        if (targetView) {
+          setState(prev => ({ ...prev, currentView: targetView }));
+        }
+      }
+    }
+  }, []);
+
+  // Escuchar cambios en la URL (navegación del sidebar)
+  useEffect(() => {
+    const handleNavigation = (e?: Event) => {
+      if (typeof window !== 'undefined') {
+        console.log('🔔 [ScrumDashboard] Evento de navegación recibido:', {
+          type: e?.type,
+          pathname: window.location.pathname,
+          search: window.location.search,
+          detail: e && 'detail' in e ? (e as CustomEvent).detail : null
+        });
+
+        // Si es un evento personalizado de scrum-navigation, usar su información
+        if (e && e.type === 'scrum-navigation' && 'detail' in e && (e as CustomEvent).detail) {
+          const detail = (e as CustomEvent).detail as { view?: string; href?: string };
+          if (detail.view) {
+            const viewMap: Record<string, ScrumView> = {
+              'projects': 'projects',
+              'epics': 'epics',
+              'stories': 'stories',
+              'sprints': 'sprints',
+              'tasks': 'tasks',
+              'reports': 'dashboard'
+            };
+            const targetView = viewMap[detail.view];
+            if (targetView) {
+              console.log('✅ [ScrumDashboard] Cambiando vista a:', targetView);
+              setState(prev => ({ ...prev, currentView: targetView }));
+              return;
+            }
+          }
+        }
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const viewParam = urlParams.get('view');
+        
+        const viewMap: Record<string, ScrumView> = {
+          'projects': 'projects',
+          'epics': 'epics',
+          'stories': 'stories',
+          'sprints': 'sprints',
+          'tasks': 'tasks',
+          'reports': 'dashboard'
+        };
+        
+        if (viewParam) {
+          const targetView = viewMap[viewParam];
+          if (targetView) {
+            console.log('✅ [ScrumDashboard] Cambiando vista desde URL a:', targetView);
+            setState(prev => ({ ...prev, currentView: targetView }));
+          }
+        } else if (window.location.pathname === '/scrum' || window.location.pathname.startsWith('/scrum')) {
+          // Si no hay parámetro view y estamos en /scrum, mostrar proyectos
+          console.log('✅ [ScrumDashboard] Sin parámetro view, estableciendo vista a: projects');
+          setState(prev => ({ ...prev, currentView: 'projects' }));
+        }
+      }
+    };
+
+    // Escuchar eventos de navegación
+    window.addEventListener('popstate', handleNavigation);
+    window.addEventListener('navigation', handleNavigation as EventListener);
+    window.addEventListener('scrum-navigation', handleNavigation as EventListener);
+
+    // Ejecutar una vez al montar para establecer la vista inicial
+    handleNavigation();
+
+    return () => {
+      window.removeEventListener('popstate', handleNavigation);
+      window.removeEventListener('navigation', handleNavigation as EventListener);
+      window.removeEventListener('scrum-navigation', handleNavigation as EventListener);
+    };
   }, []);
 
   const loadProjects = async () => {

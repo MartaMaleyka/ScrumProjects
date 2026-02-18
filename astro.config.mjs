@@ -17,14 +17,25 @@ export default defineConfig({
   },
   vite: {
     define: {
-      'process.env': {}
+      // Pasar API_URL explícitamente para que esté disponible en SSR
+      'process.env.API_URL': JSON.stringify(process.env.API_URL || 'http://localhost:3001')
     },
     server: {
+      host: true,
+      // Permitir hosts de Cloudflare Tunnel
+      allowedHosts: [
+        'okay-shoppers-elder-transparency.trycloudflare.com',
+        'localhost',
+        '127.0.0.1'
+      ],
       proxy: {
         '/api': {
-          target: process.env.API_URL || 'http://localhost:3001',
+          target: (process.env.API_URL && process.env.API_URL.startsWith('http')) 
+            ? process.env.API_URL 
+            : 'http://localhost:3001',
           changeOrigin: true,
-          secure: false
+          secure: false,
+          rewrite: (path) => path.replace(/^\/api/, '/api')
         }
       }
     }

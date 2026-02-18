@@ -26,10 +26,17 @@ export interface User {
   username: string;
   name: string;
   avatar?: string | null;
+  globalRole?: 'SUPER_ADMIN' | 'ADMIN' | 'MANAGER' | 'USER';
   isActive: boolean;
   lastLogin?: Date | string | null;
   createdAt?: string;
   updatedAt?: string;
+  organizationId?: number;
+  organization?: {
+    id: number;
+    name: string;
+    slug: string;
+  };
   role?: {
     id: number;
     name: string;
@@ -42,7 +49,7 @@ const isBrowser = () => typeof window !== 'undefined' && typeof localStorage !==
 
 class AuthService {
   private token: string | null = null;
-  private tokenMonitoringInterval: NodeJS.Timeout | null = null;
+  private tokenMonitoringInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor() {
     // Solo recuperar token del localStorage si estamos en el navegador
@@ -153,13 +160,32 @@ class AuthService {
           this.clearToken();
           throw new Error('Sesión expirada. Por favor, inicia sesión nuevamente.');
         }
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || errorData.error || 'Error al obtener usuario');
+        let errorData: any = {};
+        try {
+          errorData = await response.json();
+        } catch (e) {
+          // Si no se puede parsear el JSON, usar el texto de la respuesta
+          const text = await response.text().catch(() => 'Error desconocido');
+          throw new Error(`Error ${response.status}: ${text}`);
+        }
+        throw new Error(errorData.message || errorData.error || `Error al obtener usuario (${response.status})`);
       }
 
       const data = await response.json();
+      
+      // Verificar que la respuesta tenga la estructura esperada
+      if (!data || !data.user) {
+        console.error('❌ [authService] Respuesta inesperada de /auth/me:', data);
+        throw new Error('Formato de respuesta inválido del servidor');
+      }
+      
       return data.user;
     } catch (error: any) {
+      console.error('❌ [authService] Error en getCurrentUser:', {
+        message: error.message,
+        name: error.name,
+        stack: error.stack
+      });
       const errorMessage = error.message || 'Error al obtener usuario';
       throw new Error(errorMessage);
     }

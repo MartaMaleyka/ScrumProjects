@@ -25,6 +25,15 @@ import type {
   ProjectMember,
   ProjectTemplate
 } from '../types/scrum';
+import type {
+  RoadmapItem,
+  GanttData,
+  CriticalPath,
+  Release,
+  CreateReleaseData,
+  UpdateReleaseData,
+  CreateDependencyData
+} from '../types/roadmap';
 
 // Importar configuración centralizada de API
 import { API_BASE_URL, fetchWithTimeout, REQUEST_TIMEOUT } from '../config/api';
@@ -274,6 +283,28 @@ class ScrumService {
     return this.request<{ userStories: UserStory[] }>(`/epics/${epicId}/user-stories${queryString ? `?${queryString}` : ''}`);
   }
 
+  async getProjectUserStories(projectId: number, filters: UserStoryFilters = {}): Promise<ApiResponse<{ userStories: UserStory[] }>> {
+    // Usar el endpoint directo del backend que obtiene todas las historias del proyecto
+    const params = new URLSearchParams();
+    
+    if (filters.status) params.append('status', filters.status);
+    if (filters.priority) params.append('priority', filters.priority);
+    if (filters.epicId) params.append('epicId', filters.epicId.toString());
+    if (filters.sprintId !== undefined && filters.sprintId !== null) {
+      params.append('sprintId', filters.sprintId.toString());
+    }
+
+    const queryString = params.toString();
+    const response = await this.request<{ userStories: UserStory[] }>(`/projects/${projectId}/user-stories${queryString ? `?${queryString}` : ''}`);
+    
+    // Filtrar por sprintId null si se especifica (sin sprint)
+    if (response.success && response.data && filters.sprintId === null) {
+      response.data.userStories = response.data.userStories.filter(story => !story.sprintId);
+    }
+    
+    return response;
+  }
+
   async createUserStory(data: CreateUserStoryData): Promise<ApiResponse<{ userStory: UserStory }>> {
     return this.request<{ userStory: UserStory }>('/user-stories', {
       method: 'POST',
@@ -466,6 +497,95 @@ class ScrumService {
 
   async getTemplates(): Promise<ApiResponse<{ templates: ProjectTemplate[] }>> {
     return this.request<{ templates: ProjectTemplate[] }>('/templates');
+  }
+
+  // ===== ROADMAP =====
+
+  async getRoadmap(projectId: number): Promise<ApiResponse<{ roadmap: RoadmapItem[] }>> {
+    return this.request<{ roadmap: RoadmapItem[] }>(`/projects/${projectId}/roadmap`);
+  }
+
+  async getGanttData(projectId: number, sprintId?: number): Promise<ApiResponse<GanttData>> {
+    const query = sprintId ? `?sprintId=${sprintId}` : '';
+    return this.request<GanttData>(`/projects/${projectId}/gantt${query}`);
+  }
+
+  async getCriticalPath(projectId: number): Promise<ApiResponse<CriticalPath>> {
+    return this.request<CriticalPath>(`/projects/${projectId}/critical-path`);
+  }
+
+  async getTaskDependencies(taskId: number): Promise<ApiResponse<{ dependencies: any[] }>> {
+    return this.request<{ dependencies: any[] }>(`/tasks/${taskId}/dependencies`);
+  }
+
+  async createTaskDependency(taskId: number, data: CreateDependencyData): Promise<ApiResponse<{ dependency: any }>> {
+    return this.request<{ dependency: any }>(`/tasks/${taskId}/dependencies`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteTaskDependency(taskId: number, depId: number): Promise<ApiResponse<null>> {
+    return this.request<null>(`/tasks/${taskId}/dependencies/${depId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // ===== RELEASES =====
+
+  async getReleases(projectId: number): Promise<ApiResponse<{ releases: Release[] }>> {
+    return this.request<{ releases: Release[] }>(`/projects/${projectId}/releases`);
+  }
+
+  async createRelease(projectId: number, data: CreateReleaseData): Promise<ApiResponse<{ release: Release }>> {
+    return this.request<{ release: Release }>(`/projects/${projectId}/releases`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getRelease(id: number): Promise<ApiResponse<{ release: Release }>> {
+    return this.request<{ release: Release }>(`/releases/${id}`);
+  }
+
+  async updateRelease(id: number, data: UpdateReleaseData): Promise<ApiResponse<{ release: Release }>> {
+    return this.request<{ release: Release }>(`/releases/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteRelease(id: number): Promise<ApiResponse<null>> {
+    return this.request<null>(`/releases/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async generateReleaseNotes(releaseId: number): Promise<ApiResponse<{ notes: any[]; generated: number }>> {
+    return this.request<{ notes: any[]; generated: number }>(`/releases/${releaseId}/generate-notes`, {
+      method: 'POST',
+    });
+  }
+
+  async getChangelog(releaseId: number, format: 'json' | 'markdown' = 'json', lang?: string): Promise<any> {
+    if (format === 'markdown') {
+      // Para markdown, devolver el texto directamente
+      const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
+      // Obtener idioma del localStorage o del navegador
+      const currentLang = lang || (typeof window !== 'undefined' ? localStorage.getItem('i18nextLng')?.split('-')[0] : 'es') || 'es';
+      const response = await fetchWithTimeout(
+        `${API_BASE_URL}/scrum/releases/${releaseId}/changelog?format=markdown&lang=${currentLang}`,
+        {
+          headers: {
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        },
+        REQUEST_TIMEOUT
+      );
+      if (!response.ok) throw new Error('Error al obtener changelog');
+      return await response.text();
+    }
+    return this.request<any>(`/releases/${releaseId}/changelog?format=json`);
   }
 }
 

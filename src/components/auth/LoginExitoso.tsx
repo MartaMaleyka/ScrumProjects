@@ -44,8 +44,7 @@ const LoginExitoso: React.FC = () => {
                 <p><span className="font-medium">Nombre:</span> {user.name || 'Usuario'}</p>
                 <p><span className="font-medium">Email:</span> {user.email || 'email@ejemplo.com'}</p>
                 <p><span className="font-medium">Username:</span> {user.username || 'username'}</p>
-                <p><span className="font-medium">Rol:</span> {user.role?.name || 'Usuario'}</p>
-                <p><span className="font-medium">Departamento:</span> {user.department || 'N/A'}</p>
+                <p><span className="font-medium">Rol:</span> {user.role?.name || user.globalRole || 'Usuario'}</p>
               </div>
             </div>
           )}
@@ -77,7 +76,7 @@ const LoginExitoso: React.FC = () => {
 
         {/* Company Info */}
         <div className="text-center mt-6">
-          <p className="text-green-200 text-sm">© 2025 Gestor de Proyectos</p>
+          <p className="text-green-200 text-sm">© 2025 Sprintiva</p>
         </div>
       </div>
     </div>

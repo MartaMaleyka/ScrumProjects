@@ -2,18 +2,35 @@
  * Una sola isla React: AuthProvider + verificación de sesión + ScrumDashboard.
  * Así el header (AppSidebarLayout) siempre recibe el contexto de auth.
  */
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { AuthProvider, useAuth } from '../hooks/useAuth';
+import { ToastProvider } from './ui/Toast';
 import ScrumDashboard from './scrum/ScrumDashboard';
+import QuickSearch from './ui/QuickSearch';
+import '../i18n'; // Inicializar i18n
 
 const AppContent: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAuth();
+  const [showQuickSearch, setShowQuickSearch] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       window.location.href = '/login-moderno';
     }
   }, [isAuthenticated, isLoading]);
+
+  // Atajo de teclado Ctrl+K para búsqueda rápida
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowQuickSearch(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   if (isLoading) {
     return (
@@ -41,14 +58,21 @@ const AppContent: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     );
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      <QuickSearch isOpen={showQuickSearch} onClose={() => setShowQuickSearch(false)} />
+    </>
+  );
 };
 
 const ScrumApp: React.FC = () => (
   <AuthProvider>
-    <AppContent>
-      <ScrumDashboard />
-    </AppContent>
+    <ToastProvider>
+      <AppContent>
+        <ScrumDashboard />
+      </AppContent>
+    </ToastProvider>
   </AuthProvider>
 );
 

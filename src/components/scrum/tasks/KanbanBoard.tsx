@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
+import ReactDOM from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import { scrumService } from '../../../services/scrumService';
 import { exportService } from '../../../services/exportService';
 import type { Task, TaskStatus, TaskFilters, TaskType } from '../../../types/scrum';
 import TaskCard from './TaskCard';
 import LoadingSpinner from '../common/LoadingSpinner';
+import TaskFormImproved from './TaskFormImproved';
 
 interface KanbanBoardProps {
   projectId?: number;
@@ -29,6 +32,7 @@ interface DragState {
 }
 
 const KanbanBoard: React.FC<KanbanBoardProps> = ({ projectId, sprintId, userStoryId }) => {
+  const { t } = useTranslation();
   // Debug: Log props on mount and updates
   useEffect(() => {
   }, [projectId, sprintId, userStoryId]);
@@ -40,13 +44,15 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ projectId, sprintId, userStor
   const [dragState, setDragState] = useState<DragState | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [showTaskForm, setShowTaskForm] = useState(false);
   const dragImageRef = useRef<HTMLDivElement | null>(null);
+  const isModalOpenRef = useRef(false);
 
   // Definir columnas del Kanban con paleta IMHPA
   const columns: Omit<KanbanColumn, 'tasks'>[] = [
     {
       id: 'TODO' as TaskStatus,
-      title: 'Por Hacer',
+      title: t('tasks.status.todo', 'Por Hacer'),
       color: 'bg-gray-50 border-2 border-gray-200',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -56,8 +62,8 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ projectId, sprintId, userStor
     },
     {
       id: 'IN_PROGRESS' as TaskStatus,
-      title: 'En Progreso',
-      color: 'bg-blue-50 border-2 border-blue-deep/30',
+      title: t('tasks.status.inProgress', 'En Progreso'),
+      color: 'bg-indigo-50 border-2 border-indigo-300',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -66,7 +72,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ projectId, sprintId, userStor
     },
     {
       id: 'IN_REVIEW' as TaskStatus,
-      title: 'En Revisión',
+      title: t('tasks.status.inReview', 'En Revisión'),
       color: 'bg-purple-50 border-2 border-purple-400/30',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -77,7 +83,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ projectId, sprintId, userStor
     },
     {
       id: 'COMPLETED' as TaskStatus,
-      title: 'Completado',
+      title: t('tasks.status.completed', 'Completado'),
       color: 'bg-green-50 border-2 border-green-400/30',
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -88,7 +94,17 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ projectId, sprintId, userStor
   ];
 
   // Función para cargar tareas
-  const fetchTasks = React.useCallback(async () => {
+  const fetchTasks = React.useCallback(async (force = false) => {
+    // No recargar si hay un modal abierto y no es una recarga forzada
+    if (!force && isModalOpenRef.current) {
+      return;
+    }
+    
+    // Prevenir múltiples llamadas simultáneas
+    if (isLoading && !force) {
+      return;
+    }
+    
     try {
       setIsLoading(true);
       setError(null);
@@ -117,38 +133,68 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ projectId, sprintId, userStor
       
       setTasks(tasksData);
     } catch (err: any) {
-      setError(err.message || 'Error al cargar las tareas');
+      setError(err.message || t('tasks.loadError', 'Error al cargar las tareas'));
     } finally {
       setIsLoading(false);
     }
   }, [projectId, sprintId, userStoryId, filters]);
 
-  // Cargar tareas al montar o cambiar dependencias
+  // Cargar tareas al montar o cambiar dependencias (solo si no hay modal abierto)
+  const prevDepsRef = useRef<{ projectId?: number; sprintId?: number; userStoryId?: number; filters: TaskFilters } | null>(null);
+  
   useEffect(() => {
-    fetchTasks();
-  }, [fetchTasks]);
+    const currentDeps = { projectId, sprintId, userStoryId, filters };
+    const prevDeps = prevDepsRef.current;
+    
+    // Solo recargar si realmente cambiaron las dependencias
+    if (!prevDeps || 
+        prevDeps.projectId !== currentDeps.projectId ||
+        prevDeps.sprintId !== currentDeps.sprintId ||
+        prevDeps.userStoryId !== currentDeps.userStoryId ||
+        JSON.stringify(prevDeps.filters) !== JSON.stringify(currentDeps.filters)) {
+      
+      // Solo cargar si no hay modal abierto
+      if (!isModalOpenRef.current) {
+        fetchTasks(true); // Forzar recarga solo en cambios de dependencias
+      }
+      
+      prevDepsRef.current = currentDeps;
+    }
+  }, [projectId, sprintId, userStoryId, filters]);
 
-  // Actualización automática cada 30 segundos
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetchTasks();
-    }, 30000); // 30 segundos
+  // Actualización automática cada 60 segundos (solo si no hay modal abierto)
+  // Deshabilitado temporalmente para evitar recargas constantes
+  // useEffect(() => {
+  //   const interval = setInterval(() => {
+  //     // No refrescar automáticamente si hay un modal abierto
+  //     if (!isModalOpenRef.current) {
+  //       fetchTasks(true);
+  //     }
+  //   }, 60000); // 60 segundos
 
-    return () => clearInterval(interval);
-  }, [fetchTasks]);
+  //   return () => clearInterval(interval);
+  // }, [projectId, sprintId, userStoryId]); // No incluir filters para evitar recargas constantes
 
   // Escuchar eventos de actualización desde otras partes de la aplicación
   useEffect(() => {
-    let refreshTimeout: NodeJS.Timeout | null = null;
+    let refreshTimeout: ReturnType<typeof setTimeout> | null = null;
     
-    const handleRefresh = () => {
+    const handleRefresh = (event?: Event) => {
+      // No refrescar si hay un modal abierto
+      if (isModalOpenRef.current) {
+        return;
+      }
+      
       // Debounce: evitar múltiples refrescos muy seguidos
       if (refreshTimeout) {
         clearTimeout(refreshTimeout);
       }
       refreshTimeout = setTimeout(() => {
-        fetchTasks();
-      }, 100); // Esperar 100ms antes de refrescar para evitar llamadas duplicadas
+        // Verificar nuevamente antes de refrescar
+        if (!isModalOpenRef.current) {
+          fetchTasks(true); // Forzar recarga cuando viene de un evento
+        }
+      }, 3000); // Aumentar el debounce a 3 segundos para evitar recargas muy frecuentes
     };
 
     // Escuchar eventos personalizados de actualización
@@ -172,7 +218,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ projectId, sprintId, userStor
       window.removeEventListener('userStory:created', handleRefresh);
       window.removeEventListener('userStory:updated', handleRefresh);
     };
-  }, [fetchTasks]);
+  }, []); // No depender de fetchTasks, usar la función directamente
 
   // Organizar tareas por columnas (mantener orden)
   const kanbanColumns: KanbanColumn[] = columns.map(column => ({
@@ -287,18 +333,21 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ projectId, sprintId, userStor
         window.dispatchEvent(new CustomEvent('task:updated', { detail: { task: response.data.task } }));
         // Refrescar datos desde el servidor inmediatamente para asegurar sincronización
         // Esperar un momento para que el servidor procese la actualización y la base de datos se sincronice
+        // Solo refrescar si no hay modal abierto
         setTimeout(async () => {
-          await fetchTasks();
+          if (!isModalOpenRef.current) {
+            await fetchTasks(true);
+          }
         }, 300);
       } else {
         // Si la respuesta no fue exitosa, revertir cambios
         setTasks(previousTasks);
-        alert(`Error al actualizar la tarea: ${response.message || 'Error desconocido'}`);
+        alert(`${t('tasks.updateError', 'Error al actualizar la tarea')}: ${response.message || t('tasks.unknownError', 'Error desconocido')}`);
       }
       
     } catch (err: any) {
       setTasks(previousTasks);
-      alert(`Error al actualizar la tarea: ${err.message || 'Error desconocido'}`);
+      alert(`${t('tasks.updateError', 'Error al actualizar la tarea')}: ${err.message || t('tasks.unknownError', 'Error desconocido')}`);
     } finally {
       setDragState(null);
       setIsDragging(false);
@@ -371,7 +420,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ projectId, sprintId, userStor
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-64">
-        <LoadingSpinner size="lg" text="Cargando tablero..." />
+        <LoadingSpinner size="lg" text={t('tasks.loadingBoard', 'Cargando tablero...')} />
       </div>
     );
   }
@@ -384,13 +433,13 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ projectId, sprintId, userStor
           <svg className="w-16 h-16 text-red-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
           </svg>
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Error al cargar tablero</h3>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">{t('tasks.boardLoadError', 'Error al cargar tablero')}</h3>
           <p className="text-red-600 mb-4">{error}</p>
           <button 
             onClick={() => window.location.reload()} 
             className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors"
           >
-            Reintentar
+            {t('common.retry', 'Reintentar')}
           </button>
         </div>
       </div>
@@ -417,8 +466,8 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ projectId, sprintId, userStor
         }
         
         .kanban-column-drag-over {
-          background-color: rgba(2, 100, 197, 0.1) !important;
-          border-color: #0264C5 !important;
+          background-color: rgba(99, 102, 241, 0.1) !important;
+          border-color: #6366f1 !important;
           transform: scale(1.02);
           transition: all 0.2s ease;
         }
@@ -431,7 +480,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ projectId, sprintId, userStor
         
         .kanban-drop-indicator {
           height: 3px;
-          background: linear-gradient(90deg, transparent, #0264C5, transparent);
+          background: linear-gradient(90deg, transparent, #6366f1, transparent);
           border-radius: 2px;
           margin: 4px 0;
           animation: pulse 1s ease-in-out infinite;
@@ -452,17 +501,17 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ projectId, sprintId, userStor
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 pb-6 border-b-2 border-gray-100">
           <div className="flex-1">
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-deep to-blue-light rounded-xl flex items-center justify-center shadow-medium">
+              <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center shadow-medium">
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
                 </svg>
               </div>
               <div>
                 <h2 className="text-xl sm:text-2xl font-chatgpt-bold text-gray-900">
-                  Tablero Kanban
+                  {t('tasks.kanbanBoard', 'Tablero Kanban')}
                 </h2>
                 <p className="text-sm text-gray-600 mt-1">
-                  Arrastra y suelta las tareas para cambiar su estado
+                  {t('tasks.dragDropHint', 'Arrastra y suelta las tareas para cambiar su estado')}
                 </p>
               </div>
             </div>
@@ -471,15 +520,19 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ projectId, sprintId, userStor
           <div className="flex items-center flex-wrap gap-2 sm:gap-3">
             {/* Botón de refrescar */}
             <button
-              onClick={() => fetchTasks()}
+              onClick={() => {
+                if (!isModalOpenRef.current) {
+                  fetchTasks(true);
+                }
+              }}
               disabled={isLoading}
-              className="px-4 py-2.5 bg-white border-2 border-gray-300 hover:border-blue-deep text-gray-700 hover:text-blue-deep rounded-xl font-chatgpt-medium transition-all duration-300 hover:scale-105 active:scale-95 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
-              title="Refrescar tablero"
+              className="px-4 py-2.5 bg-white border-2 border-gray-300 hover:border-indigo-600 text-gray-700 hover:text-indigo-600 rounded-xl font-chatgpt-medium transition-all duration-300 hover:scale-105 active:scale-95 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
+              title={t('tasks.refreshBoard', 'Refrescar tablero')}
             >
               <svg className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
-              <span className="hidden sm:inline text-sm">{isLoading ? 'Actualizando...' : 'Refrescar'}</span>
+              <span className="hidden sm:inline text-sm">{isLoading ? t('tasks.updating', 'Actualizando...') : t('tasks.refresh', 'Refrescar')}</span>
             </button>
             
             {/* Botones de exportación */}
@@ -490,90 +543,106 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ projectId, sprintId, userStor
                     try {
                       setIsExporting(true);
                       const context: any = {};
-                      await exportService.exportTasksToPDF(tasks, 'Reporte de Tareas', context);
+                      await exportService.exportTasksToPDF(tasks, t('tasks.reportTitle', 'Reporte de Tareas'), context, t);
                     } catch (error: any) {
-                      alert(`Error al exportar PDF: ${error.message}`);
+                      alert(`${t('tasks.exportPdfError', 'Error al exportar PDF')}: ${error.message}`);
                     } finally {
                       setIsExporting(false);
                     }
                   }}
                   disabled={isExporting}
                   className="px-4 py-2.5 bg-red-50 border-2 border-red-200 hover:border-red-400 text-red-700 hover:text-red-900 rounded-xl font-chatgpt-medium transition-all duration-300 hover:scale-105 active:scale-95 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
-                  title="Exportar a PDF"
+                  title={t('tasks.exportPdf', 'Exportar a PDF')}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                   </svg>
-                  <span className="hidden sm:inline text-sm">{isExporting ? 'Exportando...' : 'PDF'}</span>
+                  <span className="hidden sm:inline text-sm">{isExporting ? t('tasks.exporting', 'Exportando...') : 'PDF'}</span>
                 </button>
                 <button
                   onClick={() => {
                     try {
                       setIsExporting(true);
                       const context: any = {};
-                      exportService.exportTasksToExcel(tasks, 'Reporte de Tareas', context);
+                      exportService.exportTasksToExcel(tasks, t('tasks.reportTitle', 'Reporte de Tareas'), context, t);
                     } catch (error: any) {
-                      alert(`Error al exportar Excel: ${error.message}`);
+                      alert(`${t('tasks.exportExcelError', 'Error al exportar Excel')}: ${error.message}`);
                     } finally {
                       setIsExporting(false);
                     }
                   }}
                   disabled={isExporting}
                   className="px-4 py-2.5 bg-green-50 border-2 border-green-200 hover:border-green-400 text-green-700 hover:text-green-900 rounded-xl font-chatgpt-medium transition-all duration-300 hover:scale-105 active:scale-95 flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md"
-                  title="Exportar a Excel"
+                  title={t('tasks.exportExcel', 'Exportar a Excel')}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
-                  <span className="hidden sm:inline text-sm">{isExporting ? 'Exportando...' : 'Excel'}</span>
+                  <span className="hidden sm:inline text-sm">{isExporting ? t('tasks.exporting', 'Exportando...') : 'Excel'}</span>
                 </button>
               </>
             )}
-            <a
-              href={sprintId ? `/tasks/nuevo?sprintId=${sprintId}` : userStoryId ? `/tasks/nuevo?userStoryId=${userStoryId}` : projectId ? `/tasks/nuevo?projectId=${projectId}` : '#'}
-              onClick={(e) => {
+            <button
+              onClick={() => {
                 if (!projectId && !userStoryId && !sprintId) {
-                  e.preventDefault();
-                  alert('No hay contexto disponible para crear una tarea');
+                  alert(t('tasks.noContextError', 'No hay contexto disponible para crear una tarea'));
+                } else {
+                  isModalOpenRef.current = true;
+                  setShowTaskForm(true);
                 }
               }}
-              className="px-5 py-2.5 bg-gradient-to-r from-blue-deep to-blue-light hover:from-blue-light hover:to-blue-deep text-white rounded-xl font-chatgpt-semibold transition-all duration-300 hover:scale-105 active:scale-95 flex items-center space-x-2 shadow-medium hover:shadow-lg"
+              className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl font-chatgpt-semibold transition-all duration-300 hover:scale-105 active:scale-95 flex items-center space-x-2 shadow-medium hover:shadow-lg"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
               </svg>
-              <span className="text-sm sm:text-base">Nueva Tarea</span>
-            </a>
+              <span className="text-sm sm:text-base">{t('tasks.newTask', 'Nueva Tarea')}</span>
+            </button>
           </div>
         </div>
 
-        {/* Estadísticas mejoradas con paleta IMHPA */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-          <div className="bg-white border-2 border-gray-200 rounded-2xl p-5 text-center shadow-soft hover:shadow-medium transition-all duration-300 hover:scale-105 group">
-            <div className="text-3xl font-chatgpt-bold text-gray-900 mb-2 group-hover:text-blue-deep transition-colors">{stats.total}</div>
-            <div className="text-sm font-chatgpt-medium text-gray-600">Total</div>
-          </div>
-          <div className="bg-gray-50 border-2 border-gray-300 rounded-2xl p-5 text-center shadow-soft hover:shadow-medium transition-all duration-300 hover:scale-105 group">
-            <div className="text-3xl font-chatgpt-bold text-gray-700 mb-2 group-hover:text-gray-900 transition-colors">{stats.todo}</div>
-            <div className="text-sm font-chatgpt-medium text-gray-600">Por Hacer</div>
-          </div>
-          <div className="bg-blue-50 border-2 border-blue-deep/30 rounded-2xl p-5 text-center shadow-soft hover:shadow-medium transition-all duration-300 hover:scale-105 group">
-            <div className="text-3xl font-chatgpt-bold text-blue-deep mb-2 group-hover:text-blue-light transition-colors">{stats.inProgress}</div>
-            <div className="text-sm font-chatgpt-medium text-blue-700">En Progreso</div>
-          </div>
-          <div className="bg-purple-50 border-2 border-purple-400/30 rounded-2xl p-5 text-center shadow-soft hover:shadow-medium transition-all duration-300 hover:scale-105 group">
-            <div className="text-3xl font-chatgpt-bold text-purple-700 mb-2 group-hover:text-purple-900 transition-colors">{stats.inReview}</div>
-            <div className="text-sm font-chatgpt-medium text-purple-600">En Revisión</div>
-          </div>
-          <div className="bg-green-50 border-2 border-green-400/30 rounded-2xl p-5 text-center shadow-soft hover:shadow-medium transition-all duration-300 hover:scale-105 group">
-            <div className="text-3xl font-chatgpt-bold text-green-700 mb-2 group-hover:text-green-900 transition-colors">{stats.completed}</div>
-            <div className="text-sm font-chatgpt-medium text-green-600">Completado</div>
-          </div>
-          <div className="bg-yellow-50 border-2 border-yellow-sun/30 rounded-2xl p-5 text-center shadow-soft hover:shadow-medium transition-all duration-300 hover:scale-105 group">
-            <div className="text-3xl font-chatgpt-bold text-yellow-sun mb-2 group-hover:text-yellow-soft transition-colors">{stats.totalHours}h</div>
-            <div className="text-sm font-chatgpt-medium text-yellow-700">Estimadas</div>
+        {/* Estadísticas - Compactas */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setFilters({})}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-sm font-medium shadow-sm hover:shadow-md transition-all"
+          >
+            <span className="font-bold">{stats.total}</span>
+            <span>{t('common.total', 'Total')}</span>
+          </button>
+          <button
+            onClick={() => setFilters(prev => ({ ...prev, status: 'TODO' }))}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-500 text-white text-sm font-medium shadow-sm hover:shadow-md transition-all"
+          >
+            <span className="font-bold">{stats.todo}</span>
+            <span>{t('tasks.status.todo', 'Por Hacer')}</span>
+          </button>
+          <button
+            onClick={() => setFilters(prev => ({ ...prev, status: 'IN_PROGRESS' }))}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-500 text-white text-sm font-medium shadow-sm hover:shadow-md transition-all"
+          >
+            <span className="font-bold">{stats.inProgress}</span>
+            <span>{t('tasks.status.inProgress', 'En Progreso')}</span>
+          </button>
+          <button
+            onClick={() => setFilters(prev => ({ ...prev, status: 'IN_REVIEW' }))}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-500 text-white text-sm font-medium shadow-sm hover:shadow-md transition-all"
+          >
+            <span className="font-bold">{stats.inReview}</span>
+            <span>{t('tasks.status.inReview', 'En Revisión')}</span>
+          </button>
+          <button
+            onClick={() => setFilters(prev => ({ ...prev, status: 'COMPLETED' }))}
+            className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-500 text-white text-sm font-medium shadow-sm hover:shadow-md transition-all"
+          >
+            <span className="font-bold">{stats.completed}</span>
+            <span>{t('tasks.status.completed', 'Completado')}</span>
+          </button>
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-yellow-100 text-yellow-700 text-sm font-medium border border-yellow-200">
+            <span className="font-bold">{stats.totalHours}h</span>
+            <span>{t('tasks.estimated', 'Estimadas')}</span>
             {stats.completedHours > 0 && (
-              <div className="text-xs text-gray-500 mt-1">{stats.completedHours}h completadas</div>
+              <span className="text-xs opacity-75">({stats.completedHours}h {t('tasks.completed', 'completadas')})</span>
             )}
           </div>
         </div>
@@ -587,21 +656,21 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ projectId, sprintId, userStor
                 <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                 </svg>
-                Tipo
+                {t('tasks.type', 'Tipo')}
               </label>
               <select
                 value={filters.type || 'all'}
                 onChange={(e) => setFilters(prev => ({ ...prev, type: e.target.value === 'all' ? undefined : e.target.value as any }))}
-                className="w-full bg-white border-2 border-gray-300 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-4 focus:ring-blue-light/30 focus:border-blue-deep transition-all duration-300 text-sm font-chatgpt-normal appearance-none cursor-pointer hover:border-blue-deep"
+                className="w-full bg-white border-2 border-gray-300 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-4 focus:ring-indigo-300 focus:border-indigo-600 transition-all duration-300 text-sm font-chatgpt-normal appearance-none cursor-pointer hover:border-indigo-600"
               >
-                <option value="all">Todos los tipos</option>
-                <option value="DEVELOPMENT">Desarrollo</option>
-                <option value="TESTING">Testing</option>
-                <option value="DESIGN">Diseño</option>
-                <option value="DOCUMENTATION">Documentación</option>
-                <option value="BUG_FIX">Corrección de Errores</option>
-                <option value="RESEARCH">Investigación</option>
-                <option value="REFACTORING">Refactorización</option>
+                <option value="all">{t('tasks.allTypes', 'Todos los tipos')}</option>
+                <option value="DEVELOPMENT">{t('tasks.types.development', 'Desarrollo')}</option>
+                <option value="TESTING">{t('tasks.types.testing', 'Testing')}</option>
+                <option value="DESIGN">{t('tasks.types.design', 'Diseño')}</option>
+                <option value="DOCUMENTATION">{t('tasks.types.documentation', 'Documentación')}</option>
+                <option value="BUG_FIX">{t('tasks.types.bugFix', 'Corrección de Errores')}</option>
+                <option value="RESEARCH">{t('tasks.types.research', 'Investigación')}</option>
+                <option value="REFACTORING">{t('tasks.types.refactoring', 'Refactorización')}</option>
               </select>
             </div>
 
@@ -611,44 +680,44 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ projectId, sprintId, userStor
                 <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                 </svg>
-                Asignado
+                {t('tasks.assignee', 'Asignado')}
               </label>
               <select
                 value={filters.assigneeId || 'all'}
                 onChange={(e) => setFilters(prev => ({ ...prev, assigneeId: e.target.value === 'all' ? undefined : Number(e.target.value) }))}
-                className="w-full bg-white border-2 border-gray-300 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-4 focus:ring-blue-light/30 focus:border-blue-deep transition-all duration-300 text-sm font-chatgpt-normal appearance-none cursor-pointer hover:border-blue-deep"
+                className="w-full bg-white border-2 border-gray-300 rounded-xl px-4 py-3 text-gray-900 focus:outline-none focus:ring-4 focus:ring-indigo-300 focus:border-indigo-600 transition-all duration-300 text-sm font-chatgpt-normal appearance-none cursor-pointer hover:border-indigo-600"
               >
-                <option value="all">Todos los usuarios</option>
-                <option value="unassigned">Sin asignar</option>
+                <option value="all">{t('tasks.allUsers', 'Todos los usuarios')}</option>
+                <option value="unassigned">{t('tasks.unassigned', 'Sin asignar')}</option>
                 {/* Aquí se cargarían los usuarios del proyecto */}
               </select>
             </div>
 
             {/* Resumen de horas mejorado */}
             <div className="sm:col-span-2 lg:col-span-2 flex items-end">
-              <div className="w-full bg-gradient-to-r from-blue-deep/10 to-blue-light/10 border-2 border-blue-deep/20 rounded-xl p-4">
+              <div className="w-full bg-gradient-to-r from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-xl p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <div className="text-xs font-chatgpt-medium text-gray-600 mb-1">Progreso de Horas</div>
+                    <div className="text-xs font-chatgpt-medium text-gray-600 mb-1">{t('tasks.hoursProgress', 'Progreso de Horas')}</div>
                     <div className="text-lg font-chatgpt-bold text-gray-900">
                       <span className="text-green-600">{stats.completedHours}h</span>
-                      <span className="text-gray-500 mx-2">de</span>
-                      <span className="text-blue-deep">{stats.totalHours}h</span>
+                      <span className="text-gray-500 mx-2">{t('common.of', 'de')}</span>
+                      <span className="text-indigo-600">{stats.totalHours}h</span>
                     </div>
                   </div>
                   {stats.totalHours > 0 && (
                     <div className="text-right">
-                      <div className="text-2xl font-chatgpt-bold text-blue-deep">
+                      <div className="text-2xl font-chatgpt-bold text-indigo-600">
                         {Math.round((stats.completedHours / stats.totalHours) * 100)}%
                       </div>
-                      <div className="text-xs text-gray-500">completado</div>
+                      <div className="text-xs text-gray-500">{t('tasks.completed', 'completado')}</div>
                     </div>
                   )}
                 </div>
                 {stats.totalHours > 0 && (
                   <div className="mt-3 w-full bg-gray-200 rounded-full h-2.5 overflow-hidden">
                     <div 
-                      className="bg-gradient-to-r from-blue-deep to-blue-light h-2.5 rounded-full transition-all duration-500 shadow-sm"
+                      className="bg-gradient-to-r from-indigo-600 to-purple-600 h-2.5 rounded-full transition-all duration-500 shadow-sm"
                       style={{ width: `${Math.min((stats.completedHours / stats.totalHours) * 100, 100)}%` }}
                     />
                   </div>
@@ -661,36 +730,36 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ projectId, sprintId, userStor
         {/* Tablero Kanban */}
         {tasks.length === 0 ? (
           <div className="text-center py-16">
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 border-2 border-blue-200 rounded-2xl p-8 sm:p-10 max-w-lg mx-auto shadow-soft">
-              <div className="w-20 h-20 bg-gradient-to-br from-blue-deep to-blue-light rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-medium">
+            <div className="bg-gradient-to-br from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-2xl p-8 sm:p-10 max-w-lg mx-auto shadow-soft">
+              <div className="w-20 h-20 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-medium">
                 <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                 </svg>
               </div>
               <h3 className="text-xl sm:text-2xl font-chatgpt-bold text-gray-900 mb-3">
                 {sprintId 
-                  ? 'No hay tareas en el sprint actual' 
+                  ? t('tasks.noTasksInSprint', 'No hay tareas en el sprint actual')
                   : projectId && !userStoryId 
-                    ? 'Selecciona un sprint para ver tareas' 
-                    : 'No hay tareas disponibles'
+                    ? t('tasks.selectSprint', 'Selecciona un sprint para ver tareas')
+                    : t('tasks.noTasks', 'No hay tareas disponibles')
                 }
               </h3>
               <p className="text-gray-600 mb-6 text-sm sm:text-base">
                 {sprintId
-                  ? 'Comienza creando tu primera tarea para este sprint.'
+                  ? t('tasks.createFirstTaskSprint', 'Comienza creando tu primera tarea para este sprint.')
                   : projectId && !userStoryId
-                    ? 'Las tareas se organizan por sprint. Selecciona un sprint activo para ver sus tareas.'
-                    : 'Comienza creando tu primera tarea.'
+                    ? t('tasks.tasksOrganizedBySprint', 'Las tareas se organizan por sprint. Selecciona un sprint activo para ver sus tareas.')
+                    : t('tasks.createFirstTask', 'Comienza creando tu primera tarea.')
                 }
               </p>
               <a
                 href={sprintId ? `/tasks/nuevo?sprintId=${sprintId}` : userStoryId ? `/tasks/nuevo?userStoryId=${userStoryId}` : projectId ? `/tasks/nuevo?projectId=${projectId}` : '#'}
-                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-deep to-blue-light hover:from-blue-light hover:to-blue-deep text-white rounded-xl font-chatgpt-semibold transition-all duration-300 shadow-medium hover:shadow-lg hover:scale-105 active:scale-95"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white rounded-xl font-chatgpt-semibold transition-all duration-300 shadow-medium hover:shadow-lg hover:scale-105 active:scale-95"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                 </svg>
-                <span>Crear Primera Tarea</span>
+                <span>{t('tasks.createFirstTask', 'Crear Primera Tarea')}</span>
               </a>
             </div>
           </div>
@@ -716,7 +785,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ projectId, sprintId, userStor
                     <div className="flex items-center gap-3">
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-soft ${
                         column.id === 'TODO' ? 'bg-gray-100 text-gray-700' :
-                        column.id === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-deep' :
+                        column.id === 'IN_PROGRESS' ? 'bg-indigo-100 text-indigo-700' :
                         column.id === 'IN_REVIEW' ? 'bg-purple-100 text-purple-700' :
                         'bg-green-100 text-green-700'
                       }`}>
@@ -725,13 +794,13 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ projectId, sprintId, userStor
                       <div>
                         <h3 className="text-base sm:text-lg font-chatgpt-bold text-gray-900">{column.title}</h3>
                         <p className="text-xs text-gray-500 mt-0.5">
-                          {column.tasks.length === 1 ? '1 tarea' : `${column.tasks.length} tareas`}
+                          {column.tasks.length === 1 ? `1 ${t('tasks.task', 'tarea')}` : `${column.tasks.length} ${t('tasks.tasks', 'tareas')}`}
                         </p>
                       </div>
                     </div>
                     <div className={`px-3 py-1.5 rounded-xl text-sm font-chatgpt-bold shadow-soft ${
                       column.id === 'TODO' ? 'bg-gray-200 text-gray-800' :
-                      column.id === 'IN_PROGRESS' ? 'bg-blue-deep text-white' :
+                      column.id === 'IN_PROGRESS' ? 'bg-indigo-600 text-white' :
                       column.id === 'IN_REVIEW' ? 'bg-purple-600 text-white' :
                       'bg-green-600 text-white'
                     }`}>
@@ -742,12 +811,12 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ projectId, sprintId, userStor
                   {/* Botón para agregar tarea mejorado */}
                   <a 
                     href={sprintId ? `/tasks/nuevo?sprintId=${sprintId}` : userStoryId ? `/tasks/nuevo?userStoryId=${userStoryId}` : projectId ? `/tasks/nuevo?projectId=${projectId}` : '#'}
-                    className="w-full mb-4 p-3.5 border-2 border-dashed border-gray-300 hover:border-blue-deep hover:bg-blue-50 rounded-xl text-gray-600 hover:text-blue-deep transition-all duration-300 flex items-center justify-center gap-2 group"
+                    className="w-full mb-4 p-3.5 border-2 border-dashed border-gray-300 hover:border-indigo-600 hover:bg-indigo-50 rounded-xl text-gray-600 hover:text-indigo-600 transition-all duration-300 flex items-center justify-center gap-2 group"
                   >
                     <svg className="w-4 h-4 group-hover:scale-110 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                     </svg>
-                    <span className="text-sm font-chatgpt-medium">Agregar tarea</span>
+                    <span className="text-sm font-chatgpt-medium">{t('tasks.addTask', 'Agregar tarea')}</span>
                   </a>
 
                   {/* Lista de tareas */}
@@ -777,8 +846,10 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ projectId, sprintId, userStor
                               task={task}
                               isDragging={isDraggingThis}
                               onUpdate={() => {
-                                // Refrescar las tareas después de una actualización
-                                setFilters(prev => ({ ...prev }));
+                                // Refrescar las tareas después de una actualización solo si no hay modal abierto
+                                if (!isModalOpenRef.current) {
+                                  fetchTasks(true);
+                                }
                               }}
                             />
                           </div>
@@ -804,7 +875,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ projectId, sprintId, userStor
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                             </svg>
-                            Tareas:
+                            {t('tasks.tasks', 'Tareas')}:
                           </span>
                           <span className="font-chatgpt-bold text-gray-900">{column.tasks.length}</span>
                         </div>
@@ -813,7 +884,7 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ projectId, sprintId, userStor
                             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
-                            Horas:
+                            {t('tasks.hours', 'Horas')}:
                           </span>
                           <span className="font-chatgpt-bold text-gray-900">
                             {column.tasks.reduce((sum, task) => sum + (task.estimatedHours || 0), 0)}h
@@ -828,6 +899,33 @@ const KanbanBoard: React.FC<KanbanBoardProps> = ({ projectId, sprintId, userStor
           </div>
         )}
       </div>
+
+      {/* Modal para crear nueva tarea - Renderizado con Portal para consistencia */}
+      {showTaskForm && ReactDOM.createPortal(
+        <TaskFormImproved
+          mode="create"
+          userStoryId={userStoryId}
+          projectId={projectId}
+          sprintId={sprintId}
+          asModal={true}
+          isOpen={showTaskForm}
+          onClose={() => {
+            isModalOpenRef.current = false;
+            setShowTaskForm(false);
+          }}
+          onSuccess={(task) => {
+            isModalOpenRef.current = false;
+            setShowTaskForm(false);
+            // Esperar un momento antes de recargar para que el modal se cierre completamente
+            setTimeout(() => {
+              fetchTasks(true); // Forzar recarga después de crear
+              // NO disparar evento aquí porque ya estamos recargando manualmente
+              // window.dispatchEvent(new CustomEvent('task:created', { detail: { task } }));
+            }, 300);
+          }}
+        />,
+        document.body
+      )}
     </>
   );
 };

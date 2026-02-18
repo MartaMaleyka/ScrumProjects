@@ -1,5 +1,9 @@
-import React from 'react';
+import React, { useState, useCallback, useRef } from 'react';
+import ReactDOM from 'react-dom';
+import { useTranslation } from 'react-i18next';
 import type { Task } from '../../../types/scrum';
+import TaskFormImproved from './TaskFormImproved';
+import TaskDetailModern from './TaskDetailModern';
 
 interface TaskCardProps {
   task: Task;
@@ -13,8 +17,31 @@ const TaskCard: React.FC<TaskCardProps> = ({
   task, 
   onDragStart, 
   onDragEnd, 
-  isDragging = false
+  isDragging = false,
+  onUpdate
 }) => {
+  const { t } = useTranslation();
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  
+  // Usar useRef para mantener referencias estables a las funciones de cierre
+  const handleCloseEditModal = useCallback(() => {
+    setShowEditModal(false);
+  }, []);
+  
+  const handleCloseDetailModal = useCallback(() => {
+    setShowDetailModal(false);
+  }, []);
+  
+  const handleEditSuccess = useCallback((updatedTask: any) => {
+    setShowEditModal(false);
+    // Disparar evento para actualizar el tablero
+    window.dispatchEvent(new CustomEvent('task:updated', { detail: { task: updatedTask } }));
+    // Llamar al callback onUpdate si existe
+    if (onUpdate) {
+      onUpdate();
+    }
+  }, [onUpdate]);
   const getPriorityColor = (priority?: string) => {
     if (!priority) return 'border-l-gray-300 bg-white';
     switch (priority) {
@@ -72,7 +99,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
       <div className="mb-2">
         <div className="flex items-start justify-between gap-2 mb-1">
           <h4 className="text-sm font-semibold text-gray-900 line-clamp-2 flex-1">
-            {getTaskTypeEmoji(task.type || '')} {task.title || 'Tarea sin título'}
+            {getTaskTypeEmoji(task.type || '')} {task.title || t('tasks.noTitle', 'Tarea sin título')}
           </h4>
           <span className="text-lg flex-shrink-0">
             {getPriorityLabel(task.priority || 'LOW')}
@@ -96,7 +123,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                 <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                <span className="truncate font-medium">Historia de Usuario: {task.userStory.title}</span>
+                <span className="truncate font-medium">{t('tasks.userStory', 'Historia de Usuario')}: {task.userStory.title}</span>
               </div>
               
               {/* Epic */}
@@ -105,7 +132,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                   <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                   </svg>
-                  <span className="truncate text-[10px]">Epic: {task.userStory.epic.title}</span>
+                  <span className="truncate text-[10px]">{t('epics.title', 'Epic')}: {task.userStory.epic.title}</span>
                 </div>
               )}
               
@@ -115,7 +142,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                   <svg className="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
-                  <span className="truncate text-[10px]">Sprint: {task.userStory.sprint?.name || 'Sin nombre'}</span>
+                  <span className="truncate text-[10px]">{t('sprints.title', 'Sprint')}: {task.userStory.sprint?.name || t('common.noName', 'Sin nombre')}</span>
                 </div>
               )}
             </div>
@@ -129,7 +156,7 @@ const TaskCard: React.FC<TaskCardProps> = ({
                   ? task.assignee.name.charAt(0).toUpperCase() 
                   : '?'}
               </div>
-              <span className="text-gray-700 truncate">{task.assignee.name || 'Sin nombre'}</span>
+              <span className="text-gray-700 truncate">{task.assignee.name || t('common.noName', 'Sin nombre')}</span>
             </div>
           )}
 
@@ -150,27 +177,61 @@ const TaskCard: React.FC<TaskCardProps> = ({
 
       {/* Botones de Acción */}
       <div className="mt-3 pt-2 border-t border-gray-200 flex gap-1">
-        <a
-          href={`/tasks/detalle?id=${task.id}`}
-          onClick={(e) => e.stopPropagation()}
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            setShowDetailModal(true);
+          }}
           className="flex-1 text-center px-2 py-1.5 text-xs text-[#0264C5] hover:text-white hover:bg-[#0264C5] border border-[#0264C5] rounded-lg font-medium transition-colors flex items-center justify-center gap-1"
         >
           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
-          Ver
-        </a>
-        <a
-          href={`/tasks/editar?id=${task.id}`}
-          onClick={(e) => e.stopPropagation()}
+          {t('common.view', 'Ver')}
+        </button>
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            setShowEditModal(true);
+          }}
           className="flex-1 text-center px-2 py-1.5 text-xs text-white bg-[#0264C5] hover:bg-[#11C0F1] rounded-lg font-medium transition-colors flex items-center justify-center gap-1"
         >
           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
           </svg>
-          Editar
-        </a>
+          {t('common.edit', 'Editar')}
+        </button>
       </div>
+
+      {/* Modal para ver detalle de tarea - Renderizado con Portal */}
+      {showDetailModal && ReactDOM.createPortal(
+        <TaskDetailModern
+          key={`detail-${task.id}`}
+          taskId={task.id.toString()}
+          asModal={true}
+          onClose={handleCloseDetailModal}
+        />,
+        document.body
+      )}
+
+      {/* Modal para editar tarea - Renderizado con Portal para evitar problemas de z-index */}
+      {showEditModal && ReactDOM.createPortal(
+        <TaskFormImproved
+          key={`edit-${task.id}`}
+          mode="edit"
+          taskId={task.id.toString()}
+          userStoryId={task.userStoryId}
+          projectId={task.userStory?.epic?.projectId}
+          sprintId={task.userStory?.sprintId || task.userStory?.sprint?.id}
+          asModal={true}
+          isOpen={showEditModal}
+          onClose={handleCloseEditModal}
+          onSuccess={handleEditSuccess}
+        />,
+        document.body
+      )}
     </div>
   );
 };

@@ -1,6 +1,7 @@
 const { prisma } = require('../config/database');
 const ResponseHelper = require('../utils/responseHelper');
 const PDFDocument = require('pdfkit');
+const { getOrganizationFilter } = require('../middleware/tenant');
 
 class ScrumController {
   // ===== PROYECTOS =====
@@ -19,6 +20,9 @@ class ScrumController {
         return ResponseHelper.error(res, 'Usuario inválido', 401);
       }
 
+      const globalRole = req.user?.globalRole || 'USER';
+      const organizationId = req.user?.organizationId;
+
       const {
         page = 1,
         limit = 20,
@@ -30,25 +34,31 @@ class ScrumController {
 
       const skip = (page - 1) * limit;
 
-      // Solo proyectos donde el usuario es creador O miembro activo (leftAt null)
+      // Construir where según rol global y tenant
       const where = {
         deletedAt: null,
-        AND: [
-          {
-            OR: [
-              { createdById: userId },
-              {
-                members: {
-                  some: {
-                    userId: userId,
-                    leftAt: null
-                  }
+        ...getOrganizationFilter(organizationId, globalRole) // Filtro de organización
+      };
+
+      // SUPER_ADMIN ve todos los proyectos de todas las organizaciones
+      // ADMIN y MANAGER ven todos los proyectos de su organización (excepto eliminados)
+      // USER solo ve proyectos donde es miembro Y de su organización
+      if (globalRole !== 'SUPER_ADMIN' && globalRole !== 'ADMIN' && globalRole !== 'MANAGER') {
+        if (!where.AND) where.AND = [];
+        where.AND.push({
+          OR: [
+            { createdById: userId },
+            {
+              members: {
+                some: {
+                  userId: userId,
+                  leftAt: null
                 }
               }
-            ]
-          }
-        ]
-      };
+            }
+          ]
+        });
+      }
       if (search) {
         where.AND.push({
           OR: [
@@ -447,11 +457,16 @@ class ScrumController {
         endDate
       } = req.body;
 
-      // Obtener el ID del usuario autenticado
+      // Obtener el ID del usuario autenticado y su organización
       const createdById = req.user?.id;
+      const organizationId = req.user?.organizationId;
       
       if (!createdById) {
         return ResponseHelper.error(res, 'Usuario no autenticado', 401);
+      }
+
+      if (!organizationId) {
+        return ResponseHelper.error(res, 'Usuario sin organización asignada', 400);
       }
 
       const project = await prisma.project.create({
@@ -461,7 +476,8 @@ class ScrumController {
           status,
           startDate: startDate ? new Date(startDate) : null,
           endDate: endDate ? new Date(endDate) : null,
-          createdById: createdById
+          createdById: createdById,
+          organizationId: organizationId // Asignar organización del usuario
         },
         include: {
           createdBy: {
@@ -758,25 +774,8 @@ class ScrumController {
               name: true,
               email: true,
               avatar: true,
-              position: {
-                select: {
-                  id: true,
-                  name: true,
-                  code: true
-                }
-              },
-              department: {
-                select: {
-                  id: true,
-                  name: true
-                }
-              }
-            }
-          },
-          team: {
-            select: {
-              id: true,
-              name: true
+              username: true,
+              isActive: true
             }
           }
         },
@@ -786,7 +785,8 @@ class ScrumController {
       return ResponseHelper.success(res, { members }, 'Miembros obtenidos exitosamente');
 
     } catch (error) {
-      return ResponseHelper.error(res, 'Error interno del servidor', 500);
+      console.error('Error al obtener miembros del proyecto:', error);
+      return ResponseHelper.error(res, `Error interno del servidor: ${error.message}`, 500);
     }
   }
 
@@ -872,25 +872,8 @@ class ScrumController {
                 name: true,
                 email: true,
                 avatar: true,
-                position: {
-                  select: {
-                    id: true,
-                    name: true,
-                    code: true
-                  }
-                },
-                department: {
-                  select: {
-                    id: true,
-                    name: true
-                  }
-                }
-              }
-            },
-            team: {
-              select: {
-                id: true,
-                name: true
+                username: true,
+                isActive: true
               }
             }
           }
@@ -911,25 +894,8 @@ class ScrumController {
                 name: true,
                 email: true,
                 avatar: true,
-                position: {
-                  select: {
-                    id: true,
-                    name: true,
-                    code: true
-                  }
-                },
-                department: {
-                  select: {
-                    id: true,
-                    name: true
-                  }
-                }
-              }
-            },
-            team: {
-              select: {
-                id: true,
-                name: true
+                username: true,
+                isActive: true
               }
             }
           }
@@ -1761,6 +1727,82 @@ class ScrumController {
     }
   }
 
+  /**
+   * Obtener todas las historias de usuario de un proyecto
+   */
+  static async getProjectUserStories(req, res) {
+    try {
+      const { projectId } = req.params;
+      const { status, priority, epicId, sprintId } = req.query;
+
+      // Construir where clause - filtrar por proyecto a través de las épicas
+      const where = {
+        epic: {
+          projectId: parseInt(projectId)
+        }
+      };
+
+      if (status) where.status = status;
+      if (priority) where.priority = priority;
+      if (epicId) where.epicId = parseInt(epicId);
+      if (sprintId) where.sprintId = parseInt(sprintId);
+
+      const userStories = await prisma.userStory.findMany({
+        where,
+        include: {
+          epic: {
+            select: {
+              id: true,
+              title: true,
+              project: {
+                select: {
+                  id: true,
+                  name: true
+                }
+              }
+            }
+          },
+          sprint: {
+            select: {
+              id: true,
+              name: true,
+              status: true
+            }
+          },
+          tasks: {
+            include: {
+              assignee: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true
+                }
+              }
+            }
+          },
+          _count: {
+            select: {
+              tasks: true
+            }
+          }
+        },
+        orderBy: [
+          { priority: 'desc' },
+          { createdAt: 'desc' }
+        ]
+      });
+
+      return ResponseHelper.success(
+        res,
+        { userStories, total: userStories.length },
+        'Historias de usuario del proyecto obtenidas exitosamente'
+      );
+    } catch (error) {
+      console.error('Error en getProjectUserStories:', error);
+      return ResponseHelper.error(res, 'Error interno del servidor', 500);
+    }
+  }
+
   static async getUserStoryById(req, res) {
     try {
       const { id } = req.params;
@@ -2152,6 +2194,14 @@ class ScrumController {
               id: true,
               name: true,
               status: true
+            }
+          },
+          externalLinks: {
+            where: {
+              provider: 'GITHUB'
+            },
+            orderBy: {
+              createdAt: 'desc'
             }
           }
         }
@@ -3880,6 +3930,124 @@ class ScrumController {
     }
   }
 
+  /**
+   * Obtener datos del burndown chart de un sprint
+   */
+  static async getSprintBurndown(req, res) {
+    try {
+      const { id } = req.params;
+      const sprintId = parseInt(id);
+
+      if (isNaN(sprintId)) {
+        return ResponseHelper.error(res, 'ID de sprint inválido', 400);
+      }
+
+      const sprint = await prisma.sprint.findUnique({
+        where: { id: sprintId },
+        include: {
+          userStories: {
+            include: {
+              tasks: true
+            }
+          }
+        }
+      });
+
+      if (!sprint) {
+        return ResponseHelper.error(res, 'Sprint no encontrado', 404);
+      }
+
+      if (!sprint.startDate || !sprint.endDate) {
+        return ResponseHelper.error(res, 'El sprint debe tener fechas de inicio y fin definidas', 400);
+      }
+
+      const totalPoints = sprint.userStories.reduce((sum, story) => sum + (story.storyPoints || 0), 0);
+      const startDate = new Date(sprint.startDate);
+      const endDate = new Date(sprint.endDate);
+      const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+
+      // Generar datos del burndown ideal
+      const idealBurndown = [];
+      for (let i = 0; i <= totalDays; i++) {
+        const remainingPoints = totalPoints - (totalPoints * i / totalDays);
+        idealBurndown.push({
+          day: i,
+          remainingPoints: Math.max(0, remainingPoints),
+          date: new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000).toISOString()
+        });
+      }
+
+      // Generar datos del burndown real basado en el estado actual de las historias
+      const realBurndown = [];
+      const now = new Date();
+      const currentlyCompletedPoints = sprint.userStories
+        .filter(story => story.status === 'COMPLETED')
+        .reduce((sum, story) => sum + (story.storyPoints || 0), 0);
+      
+      const inProgressPoints = sprint.userStories
+        .filter(story => story.status === 'IN_PROGRESS')
+        .reduce((sum, story) => {
+          const storyPoints = story.storyPoints || 0;
+          return sum + (storyPoints * 0.5); // Estimar 50% completado para historias en progreso
+        }, 0);
+      
+      const currentCompleted = currentlyCompletedPoints + inProgressPoints;
+      
+      for (let i = 0; i <= totalDays; i++) {
+        const currentDate = new Date(startDate.getTime() + i * 24 * 60 * 60 * 1000);
+        
+        let completedPoints = 0;
+        
+        if (currentDate > now) {
+          // Fechas futuras: proyectar basándose en el ritmo actual
+          const daysElapsed = Math.max(0, Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)));
+          if (daysElapsed > 0 && daysElapsed <= totalDays) {
+            const currentRate = currentCompleted / daysElapsed;
+            completedPoints = currentRate * i;
+          } else {
+            completedPoints = 0;
+          }
+        } else {
+          // Fechas pasadas o actuales: usar progreso real
+          const daysElapsed = Math.floor((currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+          if (daysElapsed >= 0 && daysElapsed <= totalDays) {
+            if (currentDate <= now) {
+              const progressRatio = totalDays > 0 ? Math.min(1, daysElapsed / totalDays) : 0;
+              completedPoints = currentCompleted * progressRatio;
+            } else {
+              completedPoints = currentCompleted;
+            }
+          }
+        }
+        
+        completedPoints = Math.min(completedPoints, totalPoints);
+        
+        realBurndown.push({
+          day: i,
+          remainingPoints: Math.max(0, totalPoints - completedPoints),
+          date: currentDate.toISOString()
+        });
+      }
+
+      const burndownChart = {
+        sprintId: sprint.id,
+        sprintName: sprint.name,
+        totalPoints,
+        totalDays,
+        idealBurndown,
+        realBurndown,
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString()
+      };
+
+      return ResponseHelper.success(res, { burndownChart }, 'Burndown chart obtenido exitosamente');
+
+    } catch (error) {
+      console.error('Error al obtener burndown chart:', error);
+      return ResponseHelper.error(res, 'Error interno del servidor', 500);
+    }
+  }
+
   // ===== CONFIGURACIÓN =====
 
   /**
@@ -4162,6 +4330,51 @@ class ScrumController {
       return ResponseHelper.error(res, `Error al generar el informe semanal: ${error.message}`, 500);
     }
   }
+
+  // ===== USUARIOS =====
+
+  /**
+   * Obtener todos los usuarios activos
+   */
+  static async getUsers(req, res) {
+    try {
+      const { limit = 1000, isActive = true, search } = req.query;
+
+      const where = {
+        isActive: isActive === 'true' || isActive === true
+      };
+
+      if (search) {
+        where.OR = [
+          { name: { contains: search } },
+          { email: { contains: search } },
+          { username: { contains: search } }
+        ];
+      }
+
+      const users = await prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          email: true,
+          username: true,
+          name: true,
+          avatar: true,
+          isActive: true,
+          createdAt: true
+        },
+        orderBy: {
+          name: 'asc'
+        },
+        take: parseInt(limit, 10)
+      });
+
+      return ResponseHelper.success(res, { users }, 'Usuarios obtenidos exitosamente');
+    } catch (error) {
+      console.error('Error al obtener usuarios:', error);
+      return ResponseHelper.error(res, 'Error interno del servidor', 500);
+    }
+  }
 }
 
 module.exports = {
@@ -4193,6 +4406,9 @@ module.exports = {
   getSprintStats: ScrumController.getSprintStats,
   getSprintBurndown: ScrumController.getSprintBurndown,
   
+  // Usuarios
+  getUsers: ScrumController.getUsers,
+  
   // Épicas
   getEpics: ScrumController.getEpics,
   getEpicById: ScrumController.getEpicById,
@@ -4203,6 +4419,7 @@ module.exports = {
   // User Stories
   getAllUserStories: ScrumController.getAllUserStories,
   getUserStories: ScrumController.getUserStories,
+  getProjectUserStories: ScrumController.getProjectUserStories,
   getUserStoryById: ScrumController.getUserStoryById,
   createUserStory: ScrumController.createUserStory,
   updateUserStory: ScrumController.updateUserStory,

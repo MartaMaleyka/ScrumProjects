@@ -80,16 +80,16 @@ const AddProjectMemberModal: React.FC<AddProjectMemberModalProps> = ({
 
 
       // Obtener todos los usuarios con un límite alto para obtener todos
-      const allUsersResponse = await authenticatedRequest(`${API_BASE_URL}/users?limit=1000&isActive=true`);
+      const allUsersResponse = await authenticatedRequest(`${API_BASE_URL}/scrum/users?limit=1000&isActive=true`);
       
       // Manejar diferentes estructuras de respuesta
       let allUsers: User[] = [];
-      if (Array.isArray(allUsersResponse)) {
-        allUsers = allUsersResponse;
+      if (allUsersResponse?.data?.users) {
+        allUsers = allUsersResponse.data.users;
       } else if (allUsersResponse?.users) {
         allUsers = allUsersResponse.users;
-      } else if (allUsersResponse?.data?.users) {
-        allUsers = allUsersResponse.data.users;
+      } else if (Array.isArray(allUsersResponse)) {
+        allUsers = allUsersResponse;
       } else {
         allUsers = [];
       }

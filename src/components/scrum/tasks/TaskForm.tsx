@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { scrumService } from '../../../services/scrumService';
 import type { 
   Task, 
@@ -31,6 +32,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
   onClose,
   onSuccess
 }) => {
+  const { t } = useTranslation();
   const [formData, setFormData] = useState<CreateTaskData & { actualHours?: number; projectId?: number; assignedUserId?: number }>({
     title: '',
     description: '',
@@ -51,6 +53,16 @@ const TaskForm: React.FC<TaskFormProps> = ({
   const [sprints, setSprints] = useState<Sprint[]>([]);
 
   const isEditing = !!task;
+
+  useEffect(() => {
+    console.log('🔵 TaskForm renderizado con props:', {
+      isOpen,
+      projectId,
+      userStoryId,
+      sprintId,
+      isEditing
+    });
+  }, [isOpen, projectId, userStoryId, sprintId, isEditing]);
 
   useEffect(() => {
     if (task) {
@@ -107,7 +119,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
         setSprints(sprintsResponse.data.sprints);
       }
     } catch (err) {
-      setError('Error al cargar los datos del formulario');
+      setError(t('tasks.form.loadError', 'Error al cargar los datos del formulario'));
     } finally {
       setIsLoading(false);
     }
@@ -132,17 +144,17 @@ const TaskForm: React.FC<TaskFormProps> = ({
 
   const validateForm = (): boolean => {
     if (!formData.title.trim()) {
-      setError('El título de la tarea es requerido');
+      setError(t('tasks.form.errors.titleRequired', 'El título de la tarea es requerido'));
       return false;
     }
 
     if (formData.estimatedHours && formData.estimatedHours < 0) {
-      setError('Las horas estimadas no pueden ser negativas');
+      setError(t('tasks.form.errors.estimatedHoursNegative', 'Las horas estimadas no pueden ser negativas'));
       return false;
     }
 
     if (formData.actualHours && formData.actualHours < 0) {
-      setError('Las horas reales no pueden ser negativas');
+      setError(t('tasks.form.errors.actualHoursNegative', 'Las horas reales no pueden ser negativas'));
       return false;
     }
 
@@ -190,10 +202,10 @@ const TaskForm: React.FC<TaskFormProps> = ({
         onSuccess(response.data.task);
         handleClose();
       } else {
-        setError(response.message || 'Error al guardar la tarea');
+        setError(response.message || t('tasks.form.errors.saveError', 'Error al guardar la tarea'));
       }
     } catch (err) {
-      setError('Error al guardar la tarea');
+      setError(t('tasks.form.errors.saveError', 'Error al guardar la tarea'));
     } finally {
       setIsLoading(false);
     }
@@ -279,20 +291,25 @@ const TaskForm: React.FC<TaskFormProps> = ({
     }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    console.log('❌ TaskForm no renderizado: isOpen es false');
+    return null;
+  }
+
+  console.log('✅ TaskForm renderizando modal con projectId:', projectId);
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-indigo-600 to-purple-600">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-xl font-bold text-white">
-                {isEditing ? 'Editar Tarea' : 'Crear Nueva Tarea'}
+                {isEditing ? t('tasks.editTask', 'Editar Tarea') : t('tasks.form.createTitle', 'Crear Nueva Tarea')}
               </h2>
               <p className="text-indigo-100 text-sm mt-1">
-                {userStoryId ? 'Tarea de Historia de Usuario' : sprintId ? 'Tarea de Sprint' : 'Tarea General'}
+                {userStoryId ? t('tasks.form.userStoryTask', 'Tarea de Historia de Usuario') : sprintId ? t('tasks.form.sprintTask', 'Tarea de Sprint') : t('tasks.form.generalTask', 'Tarea General')}
               </p>
             </div>
             <button
@@ -321,7 +338,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
             {/* Información Básica */}
             <div>
               <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
-                Título de la Tarea *
+                {t('tasks.form.titleLabel', 'Título de la Tarea')} *
               </label>
               <input
                 type="text"
@@ -330,14 +347,14 @@ const TaskForm: React.FC<TaskFormProps> = ({
                 value={formData.title}
                 onChange={handleInputChange}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                placeholder="Ej: Implementar autenticación de usuarios"
+                placeholder={t('tasks.form.titlePlaceholder', 'Ej: Implementar autenticación de usuarios')}
                 required
               />
             </div>
 
             <div>
               <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-2">
-                Descripción
+                {t('tasks.form.descriptionLabel', 'Descripción')}
               </label>
               <textarea
                 id="description"
@@ -346,7 +363,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
                 onChange={handleInputChange}
                 rows={4}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-none"
-                placeholder="Describe los detalles de la tarea, criterios de aceptación, etc..."
+                placeholder={t('tasks.form.descriptionPlaceholder', 'Describe los detalles de la tarea, criterios de aceptación, etc...')}
               />
             </div>
 
@@ -354,7 +371,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="type" className="block text-sm font-medium text-gray-700 mb-2">
-                  Tipo de Tarea
+                  {t('tasks.form.typeLabel', 'Tipo de Tarea')}
                 </label>
                 <div className="relative">
                   <select
@@ -364,13 +381,13 @@ const TaskForm: React.FC<TaskFormProps> = ({
                     onChange={handleInputChange}
                     className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent appearance-none"
                   >
-                    <option value="DEVELOPMENT">Desarrollo</option>
-                    <option value="TESTING">Testing</option>
-                    <option value="DESIGN">Diseño</option>
-                    <option value="DOCUMENTATION">Documentación</option>
-                    <option value="BUG_FIX">Corrección de Errores</option>
-                    <option value="RESEARCH">Investigación</option>
-                    <option value="REFACTORING">Refactorización</option>
+                    <option value="DEVELOPMENT">{t('tasks.types.development', 'Desarrollo')}</option>
+                    <option value="TESTING">{t('tasks.types.testing', 'Testing')}</option>
+                    <option value="DESIGN">{t('tasks.types.design', 'Diseño')}</option>
+                    <option value="DOCUMENTATION">{t('tasks.types.documentation', 'Documentación')}</option>
+                    <option value="BUG_FIX">{t('tasks.types.bugFix', 'Corrección de Errores')}</option>
+                    <option value="RESEARCH">{t('tasks.types.research', 'Investigación')}</option>
+                    <option value="REFACTORING">{t('tasks.types.refactoring', 'Refactorización')}</option>
                   </select>
                   <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
                     {getTaskTypeIcon(formData.type || 'DEVELOPMENT')}
@@ -380,7 +397,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
 
               <div>
                 <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-2">
-                  Estado
+                  {t('tasks.form.statusLabel', 'Estado')}
                 </label>
                 <select
                   id="status"
@@ -389,11 +406,11 @@ const TaskForm: React.FC<TaskFormProps> = ({
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 >
-                  <option value="TODO">Por Hacer</option>
-                  <option value="IN_PROGRESS">En Progreso</option>
-                  <option value="IN_REVIEW">En Revisión</option>
-                  <option value="DONE">Completado</option>
-                  <option value="CANCELLED">Cancelado</option>
+                  <option value="TODO">{t('tasks.status.todo', 'Por Hacer')}</option>
+                  <option value="IN_PROGRESS">{t('tasks.status.inProgress', 'En Progreso')}</option>
+                  <option value="IN_REVIEW">{t('tasks.status.inReview', 'En Revisión')}</option>
+                  <option value="COMPLETED">{t('tasks.status.completed', 'Completado')}</option>
+                  <option value="CANCELLED">{t('common.statusCancelled', 'Cancelado')}</option>
                 </select>
               </div>
             </div>
@@ -401,7 +418,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
             {/* Prioridad */}
             <div>
               <label htmlFor="priority" className="block text-sm font-medium text-gray-700 mb-2">
-                Prioridad
+                {t('tasks.form.priorityLabel', 'Prioridad')}
               </label>
               <div className="grid grid-cols-4 gap-2">
                 {(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as ScrumPriority[]).map(priority => (
@@ -422,9 +439,9 @@ const TaskForm: React.FC<TaskFormProps> = ({
                       className="sr-only"
                     />
                     <span className="text-sm font-medium">
-                      {priority === 'LOW' ? 'Baja' :
-                       priority === 'MEDIUM' ? 'Media' :
-                       priority === 'HIGH' ? 'Alta' : 'Crítica'}
+                      {priority === 'LOW' ? t('epics.priority.low', 'Baja') :
+                       priority === 'MEDIUM' ? t('epics.priority.medium', 'Media') :
+                       priority === 'HIGH' ? t('epics.priority.high', 'Alta') : t('epics.priority.critical', 'Crítica')}
                     </span>
                   </label>
                 ))}
@@ -435,7 +452,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label htmlFor="estimatedHours" className="block text-sm font-medium text-gray-700 mb-2">
-                  Horas Estimadas
+                  {t('tasks.form.estimatedHoursLabel', 'Horas Estimadas')}
                 </label>
                 <div className="relative">
                   <input
@@ -450,14 +467,14 @@ const TaskForm: React.FC<TaskFormProps> = ({
                     placeholder="0"
                   />
                   <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">
-                    hrs
+                    {t('tasks.form.hours', 'hrs')}
                   </div>
                 </div>
               </div>
 
               <div>
                 <label htmlFor="actualHours" className="block text-sm font-medium text-gray-700 mb-2">
-                  Horas Reales
+                  {t('tasks.form.actualHoursLabel', 'Horas Reales')}
                 </label>
                 <div className="relative">
                   <input
@@ -472,7 +489,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
                     placeholder="0"
                   />
                   <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm">
-                    hrs
+                    {t('tasks.form.hours', 'hrs')}
                   </div>
                 </div>
               </div>
@@ -482,7 +499,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label htmlFor="assignedUserId" className="block text-sm font-medium text-gray-700 mb-2">
-                  Asignado a
+                  {t('tasks.form.assigneeLabel', 'Asignado a')}
                 </label>
                 <select
                   id="assignedUserId"
@@ -491,7 +508,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 >
-                  <option value="">Sin asignar</option>
+                  <option value="">{t('tasks.unassigned', 'Sin asignar')}</option>
                   {teamMembers.map(member => (
                     <option key={member.id} value={member.id}>
                       {member.name}
@@ -502,7 +519,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
 
               <div>
                 <label htmlFor="sprintId" className="block text-sm font-medium text-gray-700 mb-2">
-                  Sprint
+                  {t('sprints.title', 'Sprint')}
                 </label>
                 <select
                   id="sprintId"
@@ -511,7 +528,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 >
-                  <option value="">Sin sprint</option>
+                  <option value="">{t('tasks.form.noSprint', 'Sin sprint')}</option>
                   {sprints.map(sprint => (
                     <option key={sprint.id} value={sprint.id}>
                       {sprint.name}
@@ -522,7 +539,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
 
               <div>
                 <label htmlFor="userStoryId" className="block text-sm font-medium text-gray-700 mb-2">
-                  Historia de Usuario
+                  {t('tasks.userStory', 'Historia de Usuario')}
                 </label>
                 <select
                   id="userStoryId"
@@ -531,7 +548,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
                   onChange={handleInputChange}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 >
-                  <option value="">Sin historia</option>
+                  <option value="">{t('tasks.form.noUserStory', 'Sin historia')}</option>
                   {userStories.map(story => (
                     <option key={story.id} value={story.id}>
                       {story.title}
@@ -551,7 +568,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
             disabled={isLoading}
             className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            Cancelar
+            {t('common.cancel', 'Cancelar')}
           </button>
           <button
             type="submit"
@@ -560,7 +577,7 @@ const TaskForm: React.FC<TaskFormProps> = ({
             className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-indigo-600 to-purple-600 border border-transparent rounded-lg hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center"
           >
             {isLoading && <LoadingSpinner size="sm" />}
-            {isEditing ? 'Actualizar Tarea' : 'Crear Tarea'}
+            {isEditing ? t('tasks.form.updateButton', 'Actualizar Tarea') : t('tasks.form.createButton', 'Crear Tarea')}
           </button>
         </div>
       </div>

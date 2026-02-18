@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import type { ProjectStatus, SprintStatus, EpicStatus, UserStoryStatus, TaskStatus } from '../../../types/scrum';
 
 interface StatusBadgeProps {
@@ -8,34 +9,36 @@ interface StatusBadgeProps {
 }
 
 const StatusBadge: React.FC<StatusBadgeProps> = ({ status, type = 'project', size = 'md' }) => {
+  const { t } = useTranslation();
+  
   const getStatusColor = (status: string, type: string) => {
-    // Colores base para diferentes estados
+    // Colores base para diferentes estados - mejor contraste sobre fondo blanco
     const colorMap: Record<string, string> = {
       // Estados de Proyecto
-      'PLANNING': 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
-      'ACTIVE': 'bg-green-500/20 text-green-300 border-green-500/30',
-      'ON_HOLD': 'bg-orange-500/20 text-orange-300 border-orange-500/30',
-      'COMPLETED': 'bg-blue-500/20 text-blue-300 border-blue-500/30',
-      'CANCELLED': 'bg-red-500/20 text-red-300 border-red-500/30',
+      'PLANNING': 'bg-yellow-100 text-yellow-700 border-yellow-300',
+      'ACTIVE': 'bg-indigo-100 text-indigo-700 border-indigo-300',
+      'ON_HOLD': 'bg-orange-100 text-orange-700 border-orange-300',
+      'COMPLETED': 'bg-purple-100 text-purple-700 border-purple-300',
+      'CANCELLED': 'bg-red-100 text-red-700 border-red-300',
       
       // Estados de Sprint
       // Usa los mismos colores que proyecto para consistencia
       
       // Estados de Épica
-      'DRAFT': 'bg-gray-500/20 text-gray-300 border-gray-500/30',
-      'READY': 'bg-blue-500/20 text-blue-300 border-blue-500/30',
-      'IN_PROGRESS': 'bg-purple-500/20 text-purple-300 border-purple-500/30',
+      'DRAFT': 'bg-gray-100 text-gray-700 border-gray-300',
+      'READY': 'bg-blue-100 text-blue-700 border-blue-300',
+      'IN_PROGRESS': 'bg-purple-100 text-purple-700 border-purple-300',
       
       // Estados de Historia de Usuario
-      'TESTING': 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
+      'TESTING': 'bg-indigo-100 text-indigo-700 border-indigo-300',
       
       // Estados de Tarea
-      'TODO': 'bg-slate-500/20 text-slate-300 border-slate-500/30',
-      'IN_REVIEW': 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
-      'DONE': 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+      'TODO': 'bg-slate-100 text-slate-700 border-slate-300',
+      'IN_REVIEW': 'bg-cyan-100 text-cyan-700 border-cyan-300',
+      'DONE': 'bg-emerald-100 text-emerald-700 border-emerald-300',
     };
 
-    return colorMap[status] || 'bg-gray-500/20 text-gray-300 border-gray-500/30';
+    return colorMap[status] || 'bg-gray-100 text-gray-700 border-gray-300';
   };
 
   const getStatusIcon = (status: string, type: string) => {
@@ -111,18 +114,18 @@ const StatusBadge: React.FC<StatusBadgeProps> = ({ status, type = 'project', siz
 
   const getStatusText = (status: string) => {
     const textMap: Record<string, string> = {
-      'PLANNING': 'Planificando',
-      'ACTIVE': 'Activo',
-      'ON_HOLD': 'En Pausa',
-      'COMPLETED': 'Completado',
-      'CANCELLED': 'Cancelado',
-      'DRAFT': 'Borrador',
-      'READY': 'Listo',
-      'IN_PROGRESS': 'En Progreso',
-      'TESTING': 'Probando',
-      'TODO': 'Por Hacer',
-      'IN_REVIEW': 'En Revisión',
-      'DONE': 'Terminado',
+      'PLANNING': t('common.statusPlanning', 'Planificando'),
+      'ACTIVE': t('common.statusActive', 'Activo'),
+      'ON_HOLD': t('common.statusOnHold', 'En Pausa'),
+      'COMPLETED': t('common.statusCompleted', 'Completado'),
+      'CANCELLED': t('common.statusCancelled', 'Cancelado'),
+      'DRAFT': t('common.statusDraft', 'Borrador'),
+      'READY': t('common.statusReady', 'Listo'),
+      'IN_PROGRESS': t('common.statusInProgress', 'En Progreso'),
+      'TESTING': t('common.statusTesting', 'Probando'),
+      'TODO': t('common.statusTodo', 'Por Hacer'),
+      'IN_REVIEW': t('common.statusInReview', 'En Revisión'),
+      'DONE': t('common.statusDone', 'Terminado'),
     };
 
     return textMap[status] || status;

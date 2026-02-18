@@ -45,6 +45,11 @@ Thumbs.db
 api/logs/
 api/node_modules/
 
+# Premium submodule (NO ignorar si se usa como submodule)
+# Si usas git submodule, NO agregues /premium aquí
+# Si NO usas submodule y quieres ignorar el directorio, descomenta:
+# /premium
+
 ### AL ###
 #Template for AL projects for Dynamics 365 Business Central
 #launch.json folder

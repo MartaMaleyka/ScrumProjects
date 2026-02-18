@@ -7,18 +7,43 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ==========================================
+// MODELO DE ORGANIZACIÓN (MULTI-TENANT)
+// ==========================================
+
+model Organization {
+  id        Int      @id @default(autoincrement())
+  name      String
+  slug      String   @unique
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  users     User[]
+  projects  Project[]
+
+  @@index([slug])
+  @@index([isActive])
+  @@map("organizations")
+}
+
 // Modelo de Usuario (simplificado para login y scrum)
 model User {
-  id          Int      @id @default(autoincrement())
-  email       String   @unique
-  username    String?  @unique
-  name        String
-  password    String?
-  avatar      String?
-  isActive    Boolean  @default(true) @map("is_active")
-  lastLogin   DateTime? @map("last_login")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id             Int          @id @default(autoincrement())
+  email          String       @unique
+  username       String?       @unique
+  name           String
+  password       String?
+  avatar         String?
+  globalRole     GlobalRole   @default(USER) @map("global_role")
+  organizationId Int          @map("organization_id")
+  isActive       Boolean      @default(true) @map("is_active")
+  lastLogin      DateTime?    @map("last_login")
+  createdAt      DateTime     @default(now()) @map("created_at")
+  updatedAt      DateTime     @updatedAt @map("updated_at")
+
+  // Relación con Organización
+  organization   Organization @relation(fields: [organizationId], references: [id])
 
   // Relaciones Scrum
   projectsCreated      Project[]              @relation("CreatedProjects")
@@ -28,7 +53,13 @@ model User {
   sprintMemberships     SprintMember[]         @relation("SprintMember")
   assignedTasks        Task[]                 @relation("TaskAssignee")
   dailyStandups        DailyStandup[]         @relation("DailyStandupParticipant")
+  
+  // Relaciones Integraciones
+  githubAccount        GitHubAccount?
 
+  @@index([globalRole])
+  @@index([organizationId])
+  @@index([organizationId, globalRole])
   @@map("users")
 }
 
@@ -37,29 +68,36 @@ model User {
 // ==========================================
 
 model Project {
-  id          Int               @id @default(autoincrement())
-  name        String
-  description String?           @db.Text
-  status      ProjectStatus     @default(PLANNING)
-  startDate   DateTime?         @map("start_date")
-  endDate     DateTime?         @map("end_date")
-  createdAt   DateTime          @default(now()) @map("created_at")
-  updatedAt   DateTime          @updatedAt @map("updated_at")
-  createdById Int               @map("created_by")
-  deletedAt   DateTime?         @map("deleted_at")
-  deletedBy   Int?              @map("deleted_by")
-  deletedByUser User?           @relation("DeletedProjects", fields: [deletedBy], references: [id])
-  createdBy   User              @relation("CreatedProjects", fields: [createdById], references: [id])
-  epics       Epic[]
-  members     ProjectMember[]
-  teams       ProjectTeam[]
-  templates   ProjectTemplate[]
-  sprints     Sprint[]
-  velocities  Velocity[]
+  id             Int               @id @default(autoincrement())
+  name           String
+  description    String?           @db.Text
+  status         ProjectStatus     @default(PLANNING)
+  startDate      DateTime?         @map("start_date")
+  endDate        DateTime?         @map("end_date")
+  organizationId Int               @map("organization_id")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  updatedAt      DateTime          @updatedAt @map("updated_at")
+  createdById    Int               @map("created_by")
+  deletedAt      DateTime?         @map("deleted_at")
+  deletedBy      Int?              @map("deleted_by")
+  deletedByUser  User?             @relation("DeletedProjects", fields: [deletedBy], references: [id])
+  createdBy      User              @relation("CreatedProjects", fields: [createdById], references: [id])
+  organization   Organization      @relation(fields: [organizationId], references: [id])
+  epics          Epic[]
+  members        ProjectMember[]
+  teams          ProjectTeam[]
+  templates      ProjectTemplate[]
+  sprints        Sprint[]
+  velocities     Velocity[]
+  releases       Release[]
+  githubRepos    GitHubRepoLink[]
+  projectSettings ProjectSetting?
 
   @@index([deletedAt])
   @@index([deletedBy])
   @@index([createdById])
+  @@index([organizationId])
+  @@index([organizationId, deletedAt])
   @@map("projects")
 }
 
@@ -105,6 +143,7 @@ model Epic {
   updatedAt     DateTime       @updatedAt @map("updated_at")
   project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
   userStories   UserStory[]
+  releases      EpicRelease[]
 
   @@map("epics")
 }
@@ -143,12 +182,18 @@ model Task {
   userStoryId    Int            @map("user_story_id")
   sprintId       Int?           @map("sprint_id")
   assigneeId     Int?           @map("assignee_id")
+  startDate      DateTime?      @map("start_date")
+  dueDate        DateTime?      @map("due_date")
   createdAt      DateTime        @default(now()) @map("created_at")
   updatedAt      DateTime        @updatedAt @map("updated_at")
   completedAt    DateTime?      @map("completed_at")
   assignee       User?           @relation("TaskAssignee", fields: [assigneeId], references: [id])
   sprint         Sprint?         @relation(fields: [sprintId], references: [id])
   userStory      UserStory       @relation(fields: [userStoryId], references: [id], onDelete: Cascade)
+  dependencies   TaskDependency[] @relation("TaskDependencies")
+  dependents     TaskDependency[] @relation("TaskDependents")
+  releaseNotes   ReleaseNote[]
+  externalLinks  TaskExternalLink[]
 
   @@index([userStoryId])
   @@index([sprintId])
@@ -157,6 +202,8 @@ model Task {
   @@index([priority])
   @@index([sprintId, status])
   @@index([assigneeId, status])
+  @@index([startDate])
+  @@index([dueDate])
   @@map("tasks")
 }
 
@@ -408,5 +455,175 @@ enum TeamMood {
   NEUTRAL
   GOOD
   VERY_GOOD
+}
+
+enum GlobalRole {
+  SUPER_ADMIN
+  ADMIN
+  MANAGER
+  USER
+}
+
+enum ReleaseStatus {
+  PLANNING
+  IN_PROGRESS
+  RELEASED
+  CANCELLED
+}
+
+enum DependencyType {
+  FINISH_TO_START
+  START_TO_START
+  FINISH_TO_FINISH
+  START_TO_FINISH
+}
+
+// ==========================================
+// MODELOS PARA ROADMAP Y PLANIFICACIÓN
+// ==========================================
+
+model TaskDependency {
+  id            Int            @id @default(autoincrement())
+  taskId        Int            @map("task_id")
+  dependsOnId   Int            @map("depends_on_id")
+  type          DependencyType @default(FINISH_TO_START)
+  lagDays       Int            @default(0) @map("lag_days")
+  createdAt     DateTime       @default(now()) @map("created_at")
+  updatedAt     DateTime       @updatedAt @map("updated_at")
+  task          Task           @relation("TaskDependencies", fields: [taskId], references: [id], onDelete: Cascade)
+  dependsOn     Task           @relation("TaskDependents", fields: [dependsOnId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, dependsOnId])
+  @@index([taskId])
+  @@index([dependsOnId])
+  @@map("task_dependencies")
+}
+
+model Release {
+  id            Int            @id @default(autoincrement())
+  projectId     Int            @map("project_id")
+  version       String
+  name          String?
+  description   String?         @db.Text
+  status        ReleaseStatus   @default(PLANNING)
+  releaseDate   DateTime?       @map("release_date")
+  plannedDate   DateTime?       @map("planned_date")
+  createdAt     DateTime        @default(now()) @map("created_at")
+  updatedAt     DateTime        @updatedAt @map("updated_at")
+  project       Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  notes         ReleaseNote[]
+  epicReleases  EpicRelease[]
+
+  @@unique([projectId, version])
+  @@index([projectId])
+  @@index([status])
+  @@index([releaseDate])
+  @@map("releases")
+}
+
+model ReleaseNote {
+  id          Int      @id @default(autoincrement())
+  releaseId   Int      @map("release_id")
+  taskId      Int?     @map("task_id")
+  type        String   // "feature", "bugfix", "improvement", "breaking"
+  title       String
+  description String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  release     Release  @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  task        Task?    @relation(fields: [taskId], references: [id], onDelete: SetNull)
+
+  @@index([releaseId])
+  @@index([taskId])
+  @@map("release_notes")
+}
+
+model EpicRelease {
+  id        Int     @id @default(autoincrement())
+  epicId    Int     @map("epic_id")
+  releaseId Int     @map("release_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  epic      Epic    @relation(fields: [epicId], references: [id], onDelete: Cascade)
+  release   Release @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+
+  @@unique([epicId, releaseId])
+  @@index([epicId])
+  @@index([releaseId])
+  @@map("epic_releases")
+}
+
+// ==========================================
+// MODELOS PARA INTEGRACIONES GITHUB
+// ==========================================
+
+model GitHubAccount {
+  id                  Int       @id @default(autoincrement())
+  userId              Int       @unique @map("user_id")
+  githubUserId        String    @map("github_user_id")
+  username            String
+  accessTokenEncrypted String   @map("access_token_encrypted") @db.Text
+  refreshTokenEncrypted String? @map("refresh_token_encrypted") @db.Text
+  tokenExpiresAt      DateTime? @map("token_expires_at")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("github_accounts")
+}
+
+model GitHubRepoLink {
+  id            Int      @id @default(autoincrement())
+  projectId     Int      @map("project_id")
+  owner         String
+  repo          String
+  installationId String?  @map("installation_id")
+  isActive      Boolean  @default(true) @map("is_active")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, owner, repo])
+  @@index([projectId])
+  @@index([isActive])
+  @@map("github_repo_links")
+}
+
+model TaskExternalLink {
+  id            Int              @id @default(autoincrement())
+  taskId        Int              @map("task_id")
+  provider      ExternalProvider @default(GITHUB)
+  externalType  ExternalLinkType @map("external_type")
+  externalId    String           @map("external_id")
+  url           String           @db.Text
+  title         String?
+  createdAt     DateTime         @default(now()) @map("created_at")
+  task          Task             @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, provider, externalType, externalId])
+  @@index([taskId])
+  @@index([provider, externalType])
+  @@index([externalId])
+  @@map("task_external_links")
+}
+
+model ProjectSetting {
+  id                    Int      @id @default(autoincrement())
+  projectId             Int      @unique @map("project_id")
+  githubIssueKeyPrefix  String   @default("SP-") @map("github_issue_key_prefix")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+  project               Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("project_settings")
+}
+
+enum ExternalProvider {
+  GITHUB
+}
+
+enum ExternalLinkType {
+  COMMIT
+  PULL_REQUEST
+  ISSUE
 }
 
