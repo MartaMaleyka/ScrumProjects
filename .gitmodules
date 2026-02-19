@@ -9,6 +9,6 @@
 
 [submodule "premium"]
 	path = premium
-	url = https://github.com/MartaMaleyka/ScrumProjectPro.git
+	url = git@github.com:MartaMaleyka/ScrumProjectPro.git
 	# Este repositorio debe ser PRIVATE
 

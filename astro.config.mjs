@@ -2,6 +2,10 @@
 import { defineConfig } from 'astro/config';
 import react from '@astrojs/react';
 import tailwind from '@astrojs/tailwind';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 // https://astro.build/config
 export default defineConfig({
@@ -17,6 +21,11 @@ export default defineConfig({
     host: true
   },
   vite: {
+    resolve: {
+      alias: {
+        '@premium': path.join(__dirname, 'premium', 'src')
+      }
+    },
     define: {
       // Pasar API_URL explícitamente para que esté disponible en SSR
       'process.env.API_URL': JSON.stringify(process.env.API_URL || 'http://localhost:3001')

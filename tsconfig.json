@@ -17,8 +17,9 @@
     "incremental": true
   },
   "include": [
-    ".astro/types.d.ts",
-    "src/**/*"
+  ".astro/types.d.ts",
+  "src/**/*",
+  "premium/src/**/*"
   ],
   "exclude": [
     "dist",

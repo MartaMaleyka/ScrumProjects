@@ -1,50 +1,61 @@
 /**
- * GitHub Service Stub (Community Edition)
+ * GitHub Service (Community Edition)
  * 
- * Este servicio lanza un error indicando que GitHub es una feature premium.
- * El servicio real está en premium/src/services/githubService.ts
+ * Si la feature GitHub está habilitada, delega al servicio real (premium) que llama al API.
+ * Si no, lanza PREMIUM_REQUIRED.
  */
+
+import { isFeatureEnabled } from '../config/features';
 
 const PREMIUM_REQUIRED_ERROR = {
   code: 'PREMIUM_REQUIRED',
   message: 'This feature requires Sprintiva Premium Edition. Please upgrade to access GitHub integration.',
 };
 
-class GitHubService {
-  private static async throwPremiumError() {
-    throw PREMIUM_REQUIRED_ERROR;
-  }
+async function getRealService() {
+  const mod = await import('../../premium/src/services/githubService');
+  return mod.githubService;
+}
 
+class GitHubService {
   static async startOAuth(returnUrl?: string) {
-    await this.throwPremiumError();
+    if (!isFeatureEnabled('github')) throw PREMIUM_REQUIRED_ERROR;
+    return (await getRealService()).startOAuth(returnUrl);
   }
 
   static async testConnection() {
-    await this.throwPremiumError();
+    if (!isFeatureEnabled('github')) throw PREMIUM_REQUIRED_ERROR;
+    return (await getRealService()).testConnection();
   }
 
   static async listRepositories() {
-    await this.throwPremiumError();
+    if (!isFeatureEnabled('github')) throw PREMIUM_REQUIRED_ERROR;
+    return (await getRealService()).listRepositories();
   }
 
   static async getStatus(projectId: number) {
-    await this.throwPremiumError();
+    if (!isFeatureEnabled('github')) throw PREMIUM_REQUIRED_ERROR;
+    return (await getRealService()).getStatus(projectId);
   }
 
   static async linkRepository(projectId: number, owner: string, repo: string) {
-    await this.throwPremiumError();
+    if (!isFeatureEnabled('github')) throw PREMIUM_REQUIRED_ERROR;
+    return (await getRealService()).linkRepository(projectId, owner, repo);
   }
 
   static async unlinkRepository(projectId: number, repoLinkId: number) {
-    await this.throwPremiumError();
+    if (!isFeatureEnabled('github')) throw PREMIUM_REQUIRED_ERROR;
+    return (await getRealService()).unlinkRepository(projectId, repoLinkId);
   }
 
   static async getActivity(projectId: number, owner: string, repo: string) {
-    await this.throwPremiumError();
+    if (!isFeatureEnabled('github')) throw PREMIUM_REQUIRED_ERROR;
+    return (await getRealService()).getActivity(projectId, owner, repo);
   }
 
   static async linkCommitToTask(taskId: number, commitSha: string, owner: string, repo: string) {
-    await this.throwPremiumError();
+    if (!isFeatureEnabled('github')) throw PREMIUM_REQUIRED_ERROR;
+    return (await getRealService()).linkCommitToTask(taskId, commitSha, owner, repo);
   }
 }
 
@@ -90,5 +101,11 @@ export interface GitHubActivity {
     commits: number;
   };
 }
+
+// Export de compatibilidad con el módulo premium
+// En Premium se exporta un objeto/servicio llamado `githubService`.
+// Aquí exponemos la clase estática bajo ese nombre para que
+// los imports existentes sigan funcionando.
+export const githubService = GitHubService;
 
 export default GitHubService;

@@ -14,6 +14,7 @@ interface BudgetWidgetProps {
 
 const BudgetWidget: React.FC<BudgetWidgetProps> = (props) => {
   const [Component, setComponent] = React.useState<React.ComponentType<BudgetWidgetProps> | null>(null);
+  const projectId = props != null && typeof (props as any).projectId === 'number' ? (props as any).projectId : undefined;
 
   React.useEffect(() => {
     loadPremiumComponent('components/premium/budgets/BudgetWidget')
@@ -27,11 +28,11 @@ const BudgetWidget: React.FC<BudgetWidgetProps> = (props) => {
       });
   }, []);
 
-  if (!Component) {
-    return null; // No mostrar widget si premium no está disponible
+  if (!Component || projectId === undefined) {
+    return null;
   }
 
-  return <Component {...props} />;
+  return <Component projectId={projectId} />;
 };
 
 export default BudgetWidget;

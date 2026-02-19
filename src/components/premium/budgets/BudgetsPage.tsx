@@ -32,14 +32,14 @@ const BudgetsPage: React.FC<BudgetsPageProps> = (props) => {
   }, []);
 
   if (loading) {
-    return <LoadingSpinner />;
+    return <LoadingSpinner key="budgets-loading" />;
   }
 
   if (Component) {
-    return <Component {...props} />;
+    return <Component key="budgets-premium" {...props} />;
   }
 
-  return <UpgradeRequired featureName="Presupuestos" />;
+  return <UpgradeRequired key="budgets-upgrade" featureName="Presupuestos" />;
 };
 
 export default BudgetsPage;

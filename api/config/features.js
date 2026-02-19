@@ -65,9 +65,13 @@ function getAppEdition() {
 function isFeatureEnabled(featureKey) {
   const edition = getAppEdition();
   
-  // Features que están en el código base (no requieren submodule premium)
-  // Estas pueden funcionar incluso en community edition si el flag está activado
-  const baseCodeFeatures = ['budgets', 'rate_cards', 'release_budgets'];
+  // Features que están en el código base (no requieren submodule premium en el servidor)
+  // Rutas en api/routes/ (roadmap.js, etc.) o flags suficientes; en Docker el dir premium puede no estar montado
+  const baseCodeFeatures = [
+    'budgets', 'rate_cards', 'release_budgets',
+    'roadmap', 'gantt', 'releases', 'github',
+    'multitenant_dashboard', 'super_admin',
+  ];
   const isBaseCodeFeature = baseCodeFeatures.includes(featureKey);
   
   // Verificar flags específicos por feature (con nombres legacy y nuevos)

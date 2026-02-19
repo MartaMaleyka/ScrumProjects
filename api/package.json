@@ -11,7 +11,8 @@
     "db:deploy": "prisma migrate deploy",
     "db:reset": "prisma migrate reset",
     "db:studio": "prisma studio",
-    "db:create": "node scripts/create-database.js"
+    "db:create": "node scripts/create-database.js",
+    "db:seed:budget": "node scripts/seed-budget.js"
   },
   "keywords": [
     "scrum",

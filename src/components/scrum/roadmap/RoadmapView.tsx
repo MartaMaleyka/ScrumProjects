@@ -6,7 +6,6 @@
  */
 
 import React from 'react';
-import { loadPremiumComponent } from '../../../config/premiumLoader';
 import UpgradeRequired from '../../common/UpgradeRequired';
 import LoadingSpinner from '../common/LoadingSpinner';
 
@@ -20,26 +19,34 @@ interface RoadmapViewProps {
 const RoadmapView: React.FC<RoadmapViewProps> = (props) => {
   const [Component, setComponent] = React.useState<React.ComponentType<RoadmapViewProps> | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const projectId = props != null && typeof (props as any).projectId === 'number' ? (props as any).projectId : undefined;
 
   React.useEffect(() => {
-    loadPremiumComponent('components/scrum/roadmap/RoadmapView')
-      .then(comp => {
-        if (comp) {
-          setComponent(comp as React.ComponentType<RoadmapViewProps>);
-        }
-        setLoading(false);
+    import('../../../../premium/src/components/scrum/roadmap/RoadmapView')
+      .then(mod => {
+        if (mod?.default) setComponent(() => mod.default);
       })
-      .catch(() => {
-        setLoading(false);
-      });
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   if (loading) {
     return <LoadingSpinner />;
   }
 
+  if (Component && projectId !== undefined) {
+    return (
+      <Component
+        projectId={projectId}
+        startDate={props?.startDate}
+        endDate={props?.endDate}
+        viewMode={props?.viewMode}
+      />
+    );
+  }
+
   if (Component) {
-    return <Component {...props} />;
+    return null;
   }
 
   return <UpgradeRequired featureName="Roadmap" />;

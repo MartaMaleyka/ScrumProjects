@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import ReactDOM from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import { scrumService } from '../../../services/scrumService';
@@ -18,7 +18,11 @@ import { RoadmapView, GanttChart, ReleasePlanner } from '../roadmap';
 import { isFeatureEnabled } from '../../../config/features';
 import UpgradeRequired from '../../common/UpgradeRequired';
 import BudgetWidget from '../../premium/budgets/BudgetWidget';
-import BudgetsPage from '../../premium/budgets/BudgetsPage';
+
+// Carga directa del componente premium para evitar stub y desorden de hooks (Rules of Hooks)
+const BudgetsPageLazy = lazy(() =>
+  import('../../../../premium/src/components/premium/budgets/BudgetsPage').then((m) => ({ default: m.default }))
+);
 
 interface ProjectDetailProps {
   projectId: number;
@@ -752,7 +756,9 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onNavigate }) 
 
         {activeTab === 'budgets' && (
           isFeatureEnabled('budgets') ? (
-            <BudgetsPage projectId={projectId} />
+            <Suspense fallback={<LoadingSpinner />}>
+              <BudgetsPageLazy projectId={projectId} />
+            </Suspense>
           ) : (
             <UpgradeRequired featureName={t('budgets.title', 'Presupuestos')} />
           )

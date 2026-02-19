@@ -1,8 +1,11 @@
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const morgan = require('morgan');
 const cookieParser = require('cookie-parser');
+// Cargar .env: primero raíz del proyecto (feature flags), luego api/.env si existe
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 require('dotenv').config();
 
 // Importar configuración de base de datos
@@ -83,6 +86,20 @@ app.use('/api/auth', authRoutes);
 app.use('/api/scrum', scrumRoutes);
 app.use('/api/admin', adminRoutes);
 
+// Rutas roadmap/releases (en Community, gated por feature flags) - ANTES de los stubs
+app.use('/api/scrum', roadmapRoutes);
+
+// Rutas GitHub y Premium (budgets, expenses, rate-cards) del código base - ANTES de los stubs
+// Así funcionan aunque el submodule premium no esté montado (p. ej. en Docker)
+const githubRoutes = require('./routes/github');
+const premiumBudgetsRoutes = require('./routes/premium/budgets');
+const premiumExpensesRoutes = require('./routes/premium/expenses');
+const premiumRateCardsRoutes = require('./routes/premium/rateCards');
+app.use('/api/integrations/github', githubRoutes);
+app.use('/api/premium/budgets', premiumBudgetsRoutes);
+app.use('/api/premium/expenses', premiumExpensesRoutes);
+app.use('/api/premium/rate-cards', premiumRateCardsRoutes);
+
 // Rutas Premium - Carga dinámica segura
 // Intenta cargar desde /premium submodule, si no existe usa stubs
 const premiumRoutesModule = premiumLoader.loadPremiumRoutes();
@@ -106,10 +123,8 @@ if (premiumRoutesModule) {
   registerPremiumStubs(app);
 }
 
-// Montar rutas premium de Community (con feature gates, funcionan como stubs si premium no está disponible)
-// Estas rutas están en Community pero son premium features
-app.use('/api/superadmin', superadminRoutes); // Rutas de SUPER_ADMIN (gated por feature flags)
-app.use('/api/scrum', roadmapRoutes); // Rutas de roadmap y releases (gated por feature flags)
+// Montar rutas premium de Community (con feature gates)
+app.use('/api/superadmin', superadminRoutes);
 // Rutas de GitHub - Carga dinámica desde premium
 // Si premium está disponible, se registran en registerPremiumRoutes
 // Si no, se usan stubs (ya registrados en registerPremiumStubs)

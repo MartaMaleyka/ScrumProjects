@@ -6,7 +6,6 @@
  */
 
 import React from 'react';
-import { loadPremiumComponent } from '../../../config/premiumLoader';
 import UpgradeRequired from '../../common/UpgradeRequired';
 import LoadingSpinner from '../common/LoadingSpinner';
 
@@ -20,26 +19,34 @@ interface GanttChartProps {
 const GanttChart: React.FC<GanttChartProps> = (props) => {
   const [Component, setComponent] = React.useState<React.ComponentType<GanttChartProps> | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const projectId = props?.projectId;
 
   React.useEffect(() => {
-    loadPremiumComponent('components/scrum/roadmap/GanttChart')
-      .then(comp => {
-        if (comp) {
-          setComponent(comp as React.ComponentType<GanttChartProps>);
-        }
-        setLoading(false);
+    import('../../../../premium/src/components/scrum/roadmap/GanttChart')
+      .then(mod => {
+        if (mod?.default) setComponent(() => mod.default);
       })
-      .catch(() => {
-        setLoading(false);
-      });
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   if (loading) {
     return <LoadingSpinner />;
   }
 
+  if (Component && projectId != null) {
+    return (
+      <Component
+        projectId={projectId}
+        sprintId={props?.sprintId}
+        showDependencies={props?.showDependencies}
+        showCriticalPath={props?.showCriticalPath}
+      />
+    );
+  }
+
   if (Component) {
-    return <Component {...props} />;
+    return null;
   }
 
   return <UpgradeRequired featureName="Gantt" />;

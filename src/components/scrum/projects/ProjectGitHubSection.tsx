@@ -6,7 +6,6 @@
  */
 
 import React from 'react';
-import { loadPremiumComponent } from '../../../config/premiumLoader';
 import UpgradeRequired from '../../common/UpgradeRequired';
 import LoadingSpinner from '../common/LoadingSpinner';
 
@@ -17,26 +16,27 @@ interface ProjectGitHubSectionProps {
 const ProjectGitHubSection: React.FC<ProjectGitHubSectionProps> = (props) => {
   const [Component, setComponent] = React.useState<React.ComponentType<ProjectGitHubSectionProps> | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const projectId = props != null && typeof (props as any).projectId === 'number' ? (props as any).projectId : undefined;
 
   React.useEffect(() => {
-    loadPremiumComponent('components/scrum/projects/ProjectGitHubSection')
-      .then(comp => {
-        if (comp) {
-          setComponent(comp as React.ComponentType<ProjectGitHubSectionProps>);
-        }
-        setLoading(false);
+    import('../../../../premium/src/components/scrum/projects/ProjectGitHubSection')
+      .then(mod => {
+        if (mod?.default) setComponent(() => mod.default);
       })
-      .catch(() => {
-        setLoading(false);
-      });
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   if (loading) {
     return <LoadingSpinner />;
   }
 
+  if (Component && projectId !== undefined) {
+    return <Component projectId={projectId} />;
+  }
+
   if (Component) {
-    return <Component {...props} />;
+    return null;
   }
 
   return <UpgradeRequired featureName="GitHub Integration" />;
