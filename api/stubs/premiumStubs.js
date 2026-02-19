@@ -31,12 +31,29 @@ function premiumStub404(req, res) {
 }
 
 /**
+ * Stub para rutas premium - retorna 403 con error PREMIUM_REQUIRED
+ */
+function premiumStub403(req, res) {
+  return res.status(403).json({
+    success: false,
+    error: 'PREMIUM_REQUIRED',
+    message: 'This feature requires Sprintiva Premium.',
+    code: 'PREMIUM_REQUIRED'
+  });
+}
+
+/**
  * Registra stubs para todas las rutas premium
  * @param {Express.App} app - Aplicación Express
  */
 function registerPremiumStubs(app) {
   // Stubs para superadmin (404 para ocultar)
   app.use('/api/superadmin', premiumStub404);
+  
+  // Stubs para Budgets/Expenses/RateCards (403 con mensaje)
+  app.use('/api/premium/budgets', premiumStub403);
+  app.use('/api/premium/expenses', premiumStub403);
+  app.use('/api/premium/rate-cards', premiumStub403);
   
   // Stubs para roadmap (403 con mensaje)
   app.use('/api/scrum/projects/:projectId/roadmap', premiumStub);
@@ -58,6 +75,7 @@ function registerPremiumStubs(app) {
 module.exports = {
   premiumStub,
   premiumStub404,
+  premiumStub403,
   registerPremiumStubs,
 };
 

@@ -9,6 +9,7 @@ require('dotenv').config();
 const { connectDB, prisma } = require('./config/database');
 const logger = require('./utils/logger');
 const { hasPremiumModule } = require('./config/features');
+const premiumLoader = require('./config/premiumLoader');
 
 // Importar rutas core (siempre disponibles)
 const authRoutes = require('./routes/auth');
@@ -17,7 +18,8 @@ const adminRoutes = require('./routes/admin');
 
 // Importar rutas premium (pueden ser stubs o reales)
 const roadmapRoutes = require('./routes/roadmap');
-const githubRoutes = require('./routes/github');
+// GitHub routes se cargan dinámicamente desde premium si está disponible
+// Si no, se usan stubs (ver más abajo)
 const superadminRoutes = require('./routes/superadmin');
 
 const app = express();
@@ -81,30 +83,36 @@ app.use('/api/auth', authRoutes);
 app.use('/api/scrum', scrumRoutes);
 app.use('/api/admin', adminRoutes);
 
-// Rutas Premium Budgeting (gated por feature flags)
-const premiumBudgetRoutes = require('./routes/premium');
-app.use('/api/premium', premiumBudgetRoutes);
+// Rutas Premium - Carga dinámica segura
+// Intenta cargar desde /premium submodule, si no existe usa stubs
+const premiumRoutesModule = premiumLoader.loadPremiumRoutes();
 
-// Rutas Premium - Montaje dinámico
-// Intentar cargar módulo premium, si no existe, usar stubs
-let premiumRoutesLoaded = false;
-try {
-  if (hasPremiumModule()) {
-    const premiumRoutes = require('../premium/api/registerPremiumRoutes');
-    premiumRoutes.registerPremiumRoutes(app);
-    premiumRoutesLoaded = true;
-    logger.success('✅ Premium module loaded successfully');
-  } else {
-    logger.info('ℹ️  Premium module not found, using stubs');
+if (premiumRoutesModule) {
+  // Premium submodule existe: registrar rutas reales
+  try {
+    premiumRoutesModule.registerPremiumRoutes(app);
+    logger.success('✅ Premium routes registered from submodule');
+  } catch (error) {
+    logger.error('❌ Error registering premium routes:', error);
+    // Fallback a stubs si hay error
+    const { registerPremiumStubs } = require('./stubs/premiumStubs');
+    registerPremiumStubs(app);
+    logger.info('ℹ️  Falling back to premium stubs');
   }
-} catch (error) {
-  logger.warn('⚠️  Could not load premium module:', error.message);
+} else {
+  // Premium submodule no existe: usar stubs
+  logger.info('ℹ️  Premium module not found, using stubs');
+  const { registerPremiumStubs } = require('./stubs/premiumStubs');
+  registerPremiumStubs(app);
 }
 
-// Montar rutas premium (con feature gates, funcionan como stubs si premium no está disponible)
+// Montar rutas premium de Community (con feature gates, funcionan como stubs si premium no está disponible)
+// Estas rutas están en Community pero son premium features
 app.use('/api/superadmin', superadminRoutes); // Rutas de SUPER_ADMIN (gated por feature flags)
 app.use('/api/scrum', roadmapRoutes); // Rutas de roadmap y releases (gated por feature flags)
-app.use('/api/integrations/github', githubRoutes); // Rutas de integración GitHub (gated por feature flags)
+// Rutas de GitHub - Carga dinámica desde premium
+// Si premium está disponible, se registran en registerPremiumRoutes
+// Si no, se usan stubs (ya registrados en registerPremiumStubs)
 
 // Nota: Las rutas premium ya tienen middleware featureGate que retorna 404 si no están habilitadas
 // Esto proporciona una capa adicional de seguridad además de los stubs
