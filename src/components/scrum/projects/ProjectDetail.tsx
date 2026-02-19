@@ -17,13 +17,15 @@ import ProjectGitHubSection from './ProjectGitHubSection';
 import { RoadmapView, GanttChart, ReleasePlanner } from '../roadmap';
 import { isFeatureEnabled } from '../../../config/features';
 import UpgradeRequired from '../../common/UpgradeRequired';
+import BudgetWidget from '../../premium/budgets/BudgetWidget';
+import BudgetsPage from '../../premium/budgets/BudgetsPage';
 
 interface ProjectDetailProps {
   projectId: number;
   onNavigate?: (view: string) => void;
 }
 
-type TabType = 'overview' | 'epics' | 'stories' | 'sprints' | 'tasks' | 'analytics' | 'members' | 'roadmap' | 'gantt' | 'releases';
+type TabType = 'overview' | 'epics' | 'stories' | 'sprints' | 'tasks' | 'analytics' | 'members' | 'roadmap' | 'gantt' | 'releases' | 'budgets';
 
 const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onNavigate }) => {
   const { t } = useTranslation();
@@ -112,7 +114,7 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onNavigate }) 
   };
 
   // Definir todas las tabs posibles
-  const allTabs: { id: TabType; label: string; icon: React.ReactElement; count?: number; isPremium?: boolean; featureKey?: 'roadmap' | 'gantt' | 'releases' }[] = [
+  const allTabs: { id: TabType; label: string; icon: React.ReactElement; count?: number; isPremium?: boolean; featureKey?: 'roadmap' | 'gantt' | 'releases' | 'budgets' }[] = [
     {
       id: 'overview',
       label: t('projects.detail.overview', 'Resumen'),
@@ -211,6 +213,17 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onNavigate }) 
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+        </svg>
+      )
+    },
+    {
+      id: 'budgets',
+      label: t('budgets.title', 'Presupuestos'),
+      isPremium: true,
+      featureKey: 'budgets',
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
         </svg>
       )
     }
@@ -492,6 +505,11 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onNavigate }) 
               {isFeatureEnabled('github') ? (
                 <ProjectGitHubSection projectId={projectId} />
               ) : null}
+
+              {/* Widget de Presupuestos - Premium Feature */}
+              {isFeatureEnabled('budgets') && (
+                <BudgetWidget projectId={projectId} />
+              )}
             </div>
 
             <div className="space-y-6">
@@ -729,6 +747,14 @@ const ProjectDetail: React.FC<ProjectDetailProps> = ({ projectId, onNavigate }) 
             <ReleasePlanner projectId={projectId} />
           ) : (
             <UpgradeRequired featureName="Releases" />
+          )
+        )}
+
+        {activeTab === 'budgets' && (
+          isFeatureEnabled('budgets') ? (
+            <BudgetsPage projectId={projectId} />
+          ) : (
+            <UpgradeRequired featureName={t('budgets.title', 'Presupuestos')} />
           )
         )}
 

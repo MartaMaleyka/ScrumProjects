@@ -15,7 +15,10 @@ export type FeatureKey =
   | 'gantt' 
   | 'releases' 
   | 'multitenant_dashboard' 
-  | 'super_admin';
+  | 'super_admin'
+  | 'budgets'
+  | 'rate_cards'
+  | 'release_budgets';
 
 export type Edition = 'community' | 'premium';
 
@@ -26,6 +29,9 @@ export interface Features {
   releases: boolean;
   multitenant_dashboard: boolean;
   super_admin: boolean;
+  budgets: boolean;
+  rate_cards: boolean;
+  release_budgets: boolean;
 }
 
 export interface FeaturesInfo {
@@ -91,6 +97,9 @@ export function isFeatureEnabled(featureKey: FeatureKey): boolean {
     releases: import.meta.env.PUBLIC_ENABLE_RELEASES || import.meta.env.PUBLIC_FEATURE_RELEASES || 'false',
     multitenant_dashboard: import.meta.env.PUBLIC_ENABLE_MULTI_TENANT_DASHBOARD || import.meta.env.PUBLIC_FEATURE_MULTI_TENANT || 'false',
     super_admin: import.meta.env.PUBLIC_ENABLE_SUPER_ADMIN_UI || import.meta.env.PUBLIC_FEATURE_SUPER_ADMIN || 'false',
+    budgets: import.meta.env.PUBLIC_PREMIUM_BUDGETS || import.meta.env.PUBLIC_FEATURE_BUDGETS || 'false',
+    rate_cards: import.meta.env.PUBLIC_PREMIUM_RATE_CARDS || import.meta.env.PUBLIC_FEATURE_RATE_CARDS || 'false',
+    release_budgets: import.meta.env.PUBLIC_PREMIUM_RELEASE_BUDGETS || import.meta.env.PUBLIC_FEATURE_RELEASE_BUDGETS || 'false',
   };
   
   return featureFlags[featureKey] === 'true';
@@ -126,6 +135,9 @@ export function getAllFeatures(): FeaturesInfo {
       releases: isFeatureEnabled('releases'),
       multitenant_dashboard: isFeatureEnabled('multitenant_dashboard'),
       super_admin: isFeatureEnabled('super_admin'),
+      budgets: isFeatureEnabled('budgets'),
+      rate_cards: isFeatureEnabled('rate_cards'),
+      release_budgets: isFeatureEnabled('release_budgets'),
     }
   };
 }

@@ -45,7 +45,7 @@ Sprintiva Community Edition es una solución completa y gratuita de gestión de 
 - ✅ **Internacionalización**: Soporte para Español e Inglés
 - ✅ **Papelera de Reciclaje**: Recuperación de elementos eliminados
 
-> 💡 **Nota**: Existe una edición Premium con funcionalidades adicionales (Roadmap, Gantt, Releases, GitHub Integration, Multi-tenant Dashboard).
+> 💡 **Nota**: Existe una edición Premium con funcionalidades adicionales (Roadmap, Gantt, Releases, GitHub Integration, Multi-tenant Dashboard, Presupuestos).
 
 ---
 
@@ -242,7 +242,7 @@ La aplicación estará disponible en:
 - 🎨 **Interfaz Moderna**: React + TypeScript + Astro con Tailwind CSS
 - 🌐 **Internacionalización**: Soporte completo para Español e Inglés
 
-> 💡 **Nota**: Esta es la Community Edition. Funcionalidades adicionales como Roadmap, Gantt, Releases e integración con GitHub están disponibles en la Premium Edition.
+> 💡 **Nota**: Esta es la Community Edition. Funcionalidades adicionales como Roadmap, Gantt, Releases, integración con GitHub y Presupuestos están disponibles en la Premium Edition.
 
 ---
 
@@ -270,6 +270,7 @@ Las siguientes funcionalidades están disponibles únicamente en la Premium Edit
 - 🔗 **GitHub Integration** ✅ (Premium only)
 - 🏢 **Multi-tenant dashboard** ✅ (Premium only)
 - 👑 **SUPER_ADMIN UI** ✅ (Premium only)
+- 💰 **Presupuestos (Budgets)** ✅ (Premium only)
 
 En la Community Edition, estas funcionalidades aparecen como stubs con mensaje "Upgrade to Premium" o devuelven 404 en los endpoints.
 

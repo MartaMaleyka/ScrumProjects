@@ -1,0 +1,14 @@
+---
+import AppSidebarLayout from '../../../components/layout/AppSidebarLayout';
+import BudgetDetails from '../../../components/premium/budgets/BudgetDetails';
+import ProtectedPageWrapper from '../../../components/auth/ProtectedPageWrapper';
+
+const { id } = Astro.params;
+---
+
+<ProtectedPageWrapper>
+  <AppSidebarLayout>
+    <BudgetDetails budgetId={id} client:load />
+  </AppSidebarLayout>
+</ProtectedPageWrapper>
+

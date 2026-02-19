@@ -41,7 +41,10 @@
     "statusInReview": "In Review",
     "statusDone": "Done",
     "locale": "en-US",
-    "of": "of"
+    "of": "of",
+    "viewAll": "View all",
+    "close": "Close",
+    "select": "Select..."
   },
   "auth": {
     "login": "Sign In",
@@ -68,7 +71,8 @@
     "stories": "Stories",
     "sprints": "Sprints",
     "tasks": "Tasks",
-    "reports": "Reports"
+    "reports": "Reports",
+    "budgets": "Budgets"
   },
   "landing": {
     "title": "Sprintiva",
@@ -883,6 +887,128 @@
     "assignedEmail": "Assigned Email",
     "createdDate": "Created Date",
     "updatedDate": "Updated Date"
+  },
+  "budgets": {
+    "title": "Budgets",
+    "subtitle": "Manage your project budgets",
+    "create": "New Budget",
+    "empty": {
+      "title": "No budgets",
+      "message": "Create your first budget to start managing your project costs",
+      "action": "Create Budget"
+    },
+    "createModal": {
+      "title": "New Budget"
+    },
+    "form": {
+      "project": "Project",
+      "scope": "Scope",
+      "sprint": "Sprint",
+      "release": "Release",
+      "name": "Name",
+      "namePlaceholder": "E.g: Q1 2026 Budget, Sprint 1 Budget, Main Release Budget",
+      "nameHint": "A descriptive name to identify this budget",
+      "currency": "Currency",
+      "startsAt": "Start Date",
+      "endsAt": "End Date",
+      "notes": "Notes",
+      "lines": "Budget Lines",
+      "addLine": "Add Line",
+      "category": "Category",
+      "amount": "Amount",
+      "amountHint": "Enter amount in {currency}"
+    },
+    "scope": {
+      "project": "Project",
+      "sprint": "Sprint",
+      "release": "Release"
+    },
+    "category": {
+      "other": "Other",
+      "labor": "Labor",
+      "software": "Software",
+      "services": "Services",
+      "hardware": "Hardware",
+      "travel": "Travel"
+    },
+    "tabs": {
+      "overview": "Overview",
+      "lines": "Planned Lines",
+      "expenses": "Expenses",
+      "rates": "Rates"
+    },
+    "details": {
+      "info": "Information",
+      "currency": "Currency",
+      "scope": "Scope",
+      "startsAt": "Start Date",
+      "endsAt": "End Date",
+      "notes": "Notes"
+    },
+    "lines": {
+      "category": "Category",
+      "type": "Type",
+      "planned": "Planned",
+      "total": "Total Planned"
+    },
+    "expenses": {
+      "from": "From",
+      "to": "To",
+      "date": "Date",
+      "category": "Category",
+      "categoryPlaceholder": "E.g: Software License, Travel, Equipment",
+      "amount": "Amount",
+      "vendor": "Vendor",
+      "vendorPlaceholder": "Vendor name",
+      "createdBy": "Created by",
+      "total": "Total Expenses",
+      "create": "New Expense",
+      "add": "Add Expense",
+      "sprint": "Sprint",
+      "task": "Task",
+      "description": "Description",
+      "descriptionPlaceholder": "Expense description..."
+    },
+    "rates": {
+      "user": "User",
+      "role": "Role",
+      "rate": "Rate/Hour",
+      "from": "From",
+      "to": "To",
+      "create": "New Rate Card",
+      "add": "Add Rate Card",
+      "info": "What are Rate Cards?",
+      "infoDesc": "Rate Cards define the hourly cost for team members or roles. They are used to calculate labor costs in budget forecasts based on estimated hours from tasks.",
+      "userHint": "Select a specific user, or leave empty and specify a role below",
+      "roleHint": "Select a role, or leave empty if you selected a user above",
+      "rateHint": "Enter hourly rate in {currency}",
+      "note": "Note: You must select either a User OR a Role (not both)."
+    },
+    "metrics": {
+      "planned": "Planned",
+      "actual": "Actual",
+      "remaining": "Remaining",
+      "burnRate": "Burn Rate",
+      "forecast": "Forecast",
+      "variance": "Variance"
+    },
+    "widget": {
+      "title": "Budgets",
+      "empty": "No budgets for this project",
+      "create": "Create Budget",
+      "total": "Total Planned"
+    },
+    "planned": "Planned",
+    "expenses": "Expenses",
+    "linesLabel": "Lines",
+    "linesCount": "lines",
+    "deleteConfirm": "Are you sure you want to delete this budget?"
+  },
+  "nav": {
+    "budgets": "Budgets"
+  },
+  "common": {
+    "viewAll": "View all"
   }
 }
 

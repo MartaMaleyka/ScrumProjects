@@ -65,18 +65,6 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect, onCreateProj
     setFilters(prev => ({ ...prev, [key]: value }));
   };
 
-  const getStatusStats = () => {
-    const stats = {
-      total: projects.length,
-      planning: projects.filter(p => p.status === 'PLANNING').length,
-      active: projects.filter(p => p.status === 'ACTIVE').length,
-      completed: projects.filter(p => p.status === 'COMPLETED').length,
-      onHold: projects.filter(p => p.status === 'ON_HOLD').length,
-    };
-    return stats;
-  };
-
-  const stats = getStatusStats();
 
   // Mostrar estado de carga
   if (isLoading) {
@@ -131,30 +119,6 @@ const ProjectList: React.FC<ProjectListProps> = ({ onProjectSelect, onCreateProj
             </svg>
             <span>{t('projects.newProject')}</span>
           </button>
-        </div>
-      </div>
-
-      {/* Estadísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <div className="bg-white border border-gray-200 rounded-xl p-4 text-center shadow-sm hover:shadow-md transition-shadow">
-          <div className="text-2xl font-bold text-gray-900 mb-1">{stats.total}</div>
-          <div className="text-gray-600 text-sm">{t('projects.total', 'Total')}</div>
-        </div>
-        <div className="bg-white border border-gray-200 rounded-xl p-4 text-center shadow-sm hover:shadow-md transition-shadow">
-          <div className="text-2xl font-bold text-yellow-600 mb-1">{stats.planning}</div>
-          <div className="text-gray-600 text-sm">{t('projects.planning', 'Planificando')}</div>
-        </div>
-        <div className="bg-white border border-gray-200 rounded-xl p-4 text-center shadow-sm hover:shadow-md transition-shadow">
-          <div className="text-2xl font-bold text-green-600 mb-1">{stats.active}</div>
-          <div className="text-gray-600 text-sm">{t('projects.active', 'Activos')}</div>
-        </div>
-        <div className="bg-white border border-gray-200 rounded-xl p-4 text-center shadow-sm hover:shadow-md transition-shadow">
-          <div className="text-2xl font-bold text-blue-600 mb-1">{stats.completed}</div>
-          <div className="text-gray-600 text-sm">{t('projects.completed', 'Completados')}</div>
-        </div>
-        <div className="bg-white border border-gray-200 rounded-xl p-4 text-center shadow-sm hover:shadow-md transition-shadow">
-          <div className="text-2xl font-bold text-orange-600 mb-1">{stats.onHold}</div>
-          <div className="text-gray-600 text-sm">{t('projects.onHold', 'En Pausa')}</div>
         </div>
       </div>
 

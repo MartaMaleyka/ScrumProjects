@@ -59,26 +59,16 @@ function getAppEdition() {
 
 /**
  * Verifica si una feature específica está habilitada
- * @param {string} featureKey - Clave de la feature ('github', 'roadmap', 'gantt', 'releases', 'multitenant_dashboard', 'super_admin')
+ * @param {string} featureKey - Clave de la feature ('github', 'roadmap', 'gantt', 'releases', 'multitenant_dashboard', 'super_admin', 'budgets', 'rate_cards', 'release_budgets')
  * @returns {boolean}
  */
 function isFeatureEnabled(featureKey) {
   const edition = getAppEdition();
   
-  // En community, todas las features premium están deshabilitadas (safe default)
-  if (edition === 'community') {
-    return false;
-  }
-  
-  // Si es premium, verificar que el módulo premium existe
-  if (!hasPremiumModule()) {
-    return false;
-  }
-  
-  // Si PREMIUM_FEATURES está en true, todas las features premium están habilitadas
-  if (process.env.PREMIUM_FEATURES === 'true' || process.env.FEATURE_PREMIUM === 'true') {
-    return true;
-  }
+  // Features que están en el código base (no requieren submodule premium)
+  // Estas pueden funcionar incluso en community edition si el flag está activado
+  const baseCodeFeatures = ['budgets', 'rate_cards', 'release_budgets'];
+  const isBaseCodeFeature = baseCodeFeatures.includes(featureKey);
   
   // Verificar flags específicos por feature (con nombres legacy y nuevos)
   const featureFlags = {
@@ -88,7 +78,30 @@ function isFeatureEnabled(featureKey) {
     releases: process.env.ENABLE_RELEASES === 'true' || process.env.FEATURE_RELEASES === 'true',
     multitenant_dashboard: process.env.ENABLE_MULTI_TENANT_DASHBOARD === 'true' || process.env.FEATURE_MULTI_TENANT === 'true',
     super_admin: process.env.ENABLE_SUPER_ADMIN_UI === 'true' || process.env.FEATURE_SUPER_ADMIN === 'true',
+    budgets: process.env.PREMIUM_BUDGETS === 'true' || process.env.FEATURE_BUDGETS === 'true',
+    rate_cards: process.env.PREMIUM_RATE_CARDS === 'true' || process.env.FEATURE_RATE_CARDS === 'true',
+    release_budgets: process.env.PREMIUM_RELEASE_BUDGETS === 'true' || process.env.FEATURE_RELEASE_BUDGETS === 'true',
   };
+  
+  // Si es una feature del código base, permitir si el flag está activado (incluso en community)
+  if (isBaseCodeFeature && featureFlags[featureKey]) {
+    return true;
+  }
+  
+  // En community, las demás features premium están deshabilitadas (safe default)
+  if (edition === 'community') {
+    return false;
+  }
+  
+  // Si es premium, verificar que el módulo premium existe (para features que lo requieren)
+  if (!isBaseCodeFeature && !hasPremiumModule()) {
+    return false;
+  }
+  
+  // Si PREMIUM_FEATURES está en true, todas las features premium están habilitadas
+  if (process.env.PREMIUM_FEATURES === 'true' || process.env.FEATURE_PREMIUM === 'true') {
+    return true;
+  }
   
   return featureFlags[featureKey] || false;
 }
@@ -123,6 +136,9 @@ function getAllFeatures() {
       releases: isFeatureEnabled('releases'),
       multitenant_dashboard: isFeatureEnabled('multitenant_dashboard'),
       super_admin: isFeatureEnabled('super_admin'),
+      budgets: isFeatureEnabled('budgets'),
+      rate_cards: isFeatureEnabled('rate_cards'),
+      release_budgets: isFeatureEnabled('release_budgets'),
     }
   };
 }

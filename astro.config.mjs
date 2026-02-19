@@ -5,6 +5,7 @@ import tailwind from '@astrojs/tailwind';
 
 // https://astro.build/config
 export default defineConfig({
+  output: 'server', // Habilitar SSR para rutas dinámicas y autenticación
   integrations: [
     react(), 
     tailwind({

@@ -81,6 +81,10 @@ app.use('/api/auth', authRoutes);
 app.use('/api/scrum', scrumRoutes);
 app.use('/api/admin', adminRoutes);
 
+// Rutas Premium Budgeting (gated por feature flags)
+const premiumBudgetRoutes = require('./routes/premium');
+app.use('/api/premium', premiumBudgetRoutes);
+
 // Rutas Premium - Montaje dinámico
 // Intentar cargar módulo premium, si no existe, usar stubs
 let premiumRoutesLoaded = false;

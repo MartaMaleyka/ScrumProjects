@@ -15,10 +15,11 @@ const { isFeatureEnabled, isPremiumEdition } = require('../config/features');
 function requireFeature(featureKey) {
   return (req, res, next) => {
     if (!isFeatureEnabled(featureKey)) {
-      // Responder con 404 para no revelar que el endpoint existe
-      return res.status(404).json({
+      // Responder con 403 para indicar que la feature no está disponible
+      return res.status(403).json({
         success: false,
-        message: 'Not found'
+        code: 'FEATURE_NOT_AVAILABLE',
+        message: 'This feature is only available in Premium Edition'
       });
     }
     next();
